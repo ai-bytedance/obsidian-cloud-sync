@@ -1,0 +1,10 @@
+{
+  "id": "cloud-sync",
+  "name": "云盘同步",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "将笔记同步到百度网盘和阿里云盘",
+  "author": "Bing",
+  "authorUrl": "https://github.com/ai-bytedance/Plugin/tree/main/obsidian-cloud-sync",
+  "isDesktopOnly": false
+} 
