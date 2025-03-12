@@ -1,7 +1,7 @@
 {
   "id": "cloud-sync",
   "name": "云盘同步",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "minAppVersion": "1.0.0",
   "description": "将笔记同步到百度网盘和阿里云盘",
   "author": "Bing",
