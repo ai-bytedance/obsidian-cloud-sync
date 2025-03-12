@@ -65,9 +65,9 @@ npm run build
 
 - 配置云盘 API 密钥（需要先申请开发者权限）
 
-- 百度网盘开发者中心
+	- [百度网盘开发者中心](https://pan.baidu.com/union/home)
 
-- 阿里云盘开放平台
+	- [阿里云盘开放平台](https://www.aliyun.com/product/storage/disk)
 
 - 设置加密密钥（请妥善保管，丢失将无法恢复已加密文件）
 
