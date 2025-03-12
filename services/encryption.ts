@@ -1,10 +1,10 @@
-import * as CryptoJS from 'crypto-js';
+import CryptoJS from 'crypto-js';
 
 export class EncryptionService {
   private key: string;
 
   constructor(key: string) {
-    this.key = key || 'default-encryption-key';
+    this.key = key || 'default-key';
   }
 
   // 更新加密密钥
@@ -34,33 +34,54 @@ export class EncryptionService {
     return bytes.buffer;
   }
 
-  // 使用 CryptoJS 进行 AES 加密
-  async encrypt(data: ArrayBuffer): Promise<string> {
+  // 加密方法 - 支持字符串和 ArrayBuffer 输入
+  async encrypt(data: string | ArrayBuffer): Promise<string> {
     try {
-      // 将 ArrayBuffer 转换为 Base64 字符串
-      const base64 = this.arrayBufferToBase64(data);
+      let dataStr: string;
       
-      // 使用 CryptoJS 进行 AES 加密
-      const encrypted = CryptoJS.AES.encrypt(base64, this.key).toString();
+      if (data instanceof ArrayBuffer) {
+        // 将 ArrayBuffer 转换为字符串
+        dataStr = this.arrayBufferToString(data);
+      } else {
+        dataStr = data;
+      }
       
+      // 使用 AES 加密
+      const encrypted = CryptoJS.AES.encrypt(dataStr, this.key).toString();
       return encrypted;
     } catch (error) {
-      console.error('加密失败:', error);
+      console.error('加密失败', error);
       throw new Error('加密失败: ' + error.message);
     }
   }
 
-  // 使用 CryptoJS 进行 AES 解密
-  async decrypt(encryptedText: string): Promise<ArrayBuffer> {
+  // 解密方法
+  async decrypt(encryptedData: string): Promise<ArrayBuffer> {
     try {
-      // 使用 CryptoJS 进行 AES 解密
-      const decrypted = CryptoJS.AES.decrypt(encryptedText, this.key).toString(CryptoJS.enc.Utf8);
+      // 使用 AES 解密
+      const decrypted = CryptoJS.AES.decrypt(encryptedData, this.key).toString(CryptoJS.enc.Utf8);
       
-      // 将解密后的 Base64 字符串转换为 ArrayBuffer
-      return this.base64ToArrayBuffer(decrypted);
+      // 将解密后的字符串转换为 ArrayBuffer
+      return this.stringToArrayBuffer(decrypted);
     } catch (error) {
-      console.error('解密失败:', error);
+      console.error('解密失败', error);
       throw new Error('解密失败: ' + error.message);
     }
+  }
+
+  // 辅助方法：将 ArrayBuffer 转换为字符串
+  private arrayBufferToString(buffer: ArrayBuffer): string {
+    const uint8Array = new Uint8Array(buffer);
+    let result = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      result += String.fromCharCode(uint8Array[i]);
+    }
+    return result;
+  }
+
+  // 辅助方法：将字符串转换为 ArrayBuffer
+  private stringToArrayBuffer(str: string): ArrayBuffer {
+    const encoder = new TextEncoder();
+    return encoder.encode(str).buffer;
   }
 } 
