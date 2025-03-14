@@ -1,5 +1,7 @@
 # Obsidian 云盘同步插件
 
+## 正在重构中。。。请耐心等待
+
 一款强大的 Obsidian 插件，支持将笔记自动同步到多种云盘服务，提供端到端加密保护，让您的笔记既安全又便捷。
 
 ![demo](https://github.com/user-attachments/assets/bda27f32-5b15-469c-a259-d380247b1f27)
