@@ -1,9 +1,103 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import CloudSyncPlugin from '../../../main';
-import { PluginSettings, WebDAVSettings } from '../../models/plugin-settings';
+import { PluginSettings, WebDAVSettings, RequestDelayLevel } from '../../models/plugin-settings';
 import { WebDAVProvider } from '../../services/storage/webdav-provider';
 import { ConnectionStatus } from '../../services/storage/storage-provider';
 import { ConflictPolicy, SyncDirection, SyncMode } from '../../models/plugin-settings';
+
+// 添加CSS样式
+const JIANGUOYUN_SETTINGS_STYLES = `
+.cloud-sync-provider-specific-settings {
+  margin: 10px 0;
+}
+
+.cloud-sync-jianguoyun-settings {
+  background-color: rgba(14, 101, 235, 0.05);
+  border: 1px solid rgba(14, 101, 235, 0.2);
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.cloud-sync-jianguoyun-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.cloud-sync-jianguoyun-icon {
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+.cloud-sync-subtitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.cloud-sync-info-panel {
+  display: flex;
+  background-color: rgba(14, 101, 235, 0.1);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 15px;
+}
+
+.cloud-sync-info-icon {
+  margin-right: 10px;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.cloud-sync-info-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-normal);
+}
+
+.cloud-sync-jianguoyun-setting {
+  border-top: 1px solid rgba(14, 101, 235, 0.1);
+  padding-top: 10px;
+}
+
+.cloud-sync-jianguoyun-setting:last-child {
+  margin-bottom: 0;
+}
+
+.cloud-sync-other-provider {
+  display: flex;
+  align-items: center;
+  background-color: rgba(255, 204, 0, 0.05);
+  border: 1px dashed rgba(255, 204, 0, 0.3);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 8px 0 15px 0;
+  font-size: 12px;
+}
+
+.cloud-sync-tip-icon {
+  margin-right: 8px;
+  font-size: 14px;
+  flex-shrink: 0;
+  color: #f5a623;
+}
+
+.cloud-sync-tip-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+.cloud-sync-required::after {
+  content: " *";
+  color: var(--text-error);
+}
+`;
 
 /**
  * Cloud Sync插件设置界面
@@ -13,10 +107,24 @@ export class CloudSyncSettingTab extends PluginSettingTab {
   plugin: CloudSyncPlugin;
   tempSettings: PluginSettings;
   testingConnection: boolean = false;
+  styleElement: HTMLStyleElement | null = null;
 
   constructor(app: App, plugin: CloudSyncPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+    
+    // 添加CSS样式
+    this.styleElement = document.head.createEl('style');
+    this.styleElement.textContent = JIANGUOYUN_SETTINGS_STYLES;
+  }
+  
+  // 在卸载时移除样式
+  hide() {
+    if (this.styleElement && this.styleElement.parentNode) {
+      this.styleElement.parentNode.removeChild(this.styleElement);
+      this.styleElement = null;
+    }
+    super.hide();
   }
 
   async display(): Promise<void> {
@@ -524,41 +632,75 @@ export class CloudSyncSettingTab extends PluginSettingTab {
 
   // WebDAV设置部分
   createWebDAVSection(containerEl: HTMLElement): void {
-    // 确保有WebDAV设置
-    if (!this.tempSettings.providerSettings.webdav) {
-      this.tempSettings.providerSettings.webdav = {
-        enabled: true,
-        username: '',
-        password: '',
-        serverUrl: '',
-        syncPath: ''
-      };
-    }
-    
     const webdavSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
     
-    webdavSection.createEl('h3', { text: 'WebDAV 设置' });
+    webdavSection.createEl('h3', { text: 'WebDAV设置' });
     
-    // 账号设置
+    // 用户名设置
     const usernameSettingContainer = new Setting(webdavSection)
-      .setName('账号')
-      .setDesc('WebDAV账号')
-      .addText(text => text
-        .setValue(this.tempSettings.providerSettings.webdav?.username || '')
-        .setPlaceholder('请输入WebDAV账号')
-        .onChange(async (value) => {
-          if (!this.tempSettings.providerSettings.webdav) {
-            this.tempSettings.providerSettings.webdav = {
-              enabled: true,
-              username: '',
-              password: '',
-              serverUrl: '',
-              syncPath: ''
-            };
-          }
-          this.tempSettings.providerSettings.webdav.username = value;
-          await this.plugin.saveSettings(this.tempSettings);
-        }));
+      .setName('用户名')
+      .setDesc('WebDAV用户名')
+      .addText(text => {
+        let isTextVisible = true;
+        
+        text.setValue(this.tempSettings.providerSettings.webdav?.username || '')
+          .setPlaceholder('请输入WebDAV用户名')
+          .onChange(async (value) => {
+            if (!this.tempSettings.providerSettings.webdav) {
+              this.tempSettings.providerSettings.webdav = {
+                enabled: true,
+                username: '',
+                password: '',
+                serverUrl: '',
+                syncPath: ''
+              };
+            }
+            this.tempSettings.providerSettings.webdav.username = value;
+            await this.plugin.saveSettings(this.tempSettings);
+          });
+          
+        // 添加可见性切换功能
+        const toggleTextVisibility = (show: boolean) => {
+          isTextVisible = show;
+          text.inputEl.type = show ? 'text' : 'password';
+        };
+        
+        // 默认为文本模式（可见）
+        toggleTextVisibility(true);
+        
+        // 获取输入框元素
+        const inputEl = text.inputEl;
+        
+        // 调整输入框样式，为图标留出空间
+        inputEl.style.paddingRight = '30px';
+        
+        // 创建一个容器来包含输入框和图标
+        const containerEl = inputEl.parentElement;
+        if (containerEl) {
+          containerEl.style.position = 'relative';
+          
+          // 添加显示/隐藏按钮到输入框容器中
+          const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
+          eyeIconContainer.style.position = 'absolute';
+          eyeIconContainer.style.right = '8px';
+          eyeIconContainer.style.top = '50%';
+          eyeIconContainer.style.transform = 'translateY(-50%)';
+          eyeIconContainer.style.cursor = 'pointer';
+          eyeIconContainer.style.zIndex = '1';
+          eyeIconContainer.style.fontSize = '16px';
+          eyeIconContainer.style.opacity = '0.7';
+          eyeIconContainer.style.color = 'var(--text-normal)';
+          eyeIconContainer.style.pointerEvents = 'auto';
+          eyeIconContainer.innerHTML = isTextVisible ? '👁️' : '👁️‍🗨️';
+          
+          eyeIconContainer.addEventListener('click', () => {
+            toggleTextVisibility(!isTextVisible);
+            eyeIconContainer.innerHTML = isTextVisible ? '👁️' : '👁️‍🗨️';
+          });
+        }
+        
+        return text;
+      });
     
     // 添加必填标记
     usernameSettingContainer.nameEl.addClass('cloud-sync-required');
@@ -567,22 +709,67 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     const passwordSettingContainer = new Setting(webdavSection)
       .setName('密码')
       .setDesc('WebDAV密码')
-      .addText(text => text
-        .setValue(this.tempSettings.providerSettings.webdav?.password || '')
-        .setPlaceholder('请输入WebDAV密码')
-        .onChange(async (value) => {
-          if (!this.tempSettings.providerSettings.webdav) {
-            this.tempSettings.providerSettings.webdav = {
-              enabled: true,
-              username: '',
-              password: '',
-              serverUrl: '',
-              syncPath: ''
-            };
-          }
-          this.tempSettings.providerSettings.webdav.password = value;
-          await this.plugin.saveSettings(this.tempSettings);
-        }));
+      .addText(text => {
+        let isPasswordVisible = true;
+        
+        text.setValue(this.tempSettings.providerSettings.webdav?.password || '')
+          .setPlaceholder('请输入WebDAV密码')
+          .onChange(async (value) => {
+            if (!this.tempSettings.providerSettings.webdav) {
+              this.tempSettings.providerSettings.webdav = {
+                enabled: true,
+                username: '',
+                password: '',
+                serverUrl: '',
+                syncPath: ''
+              };
+            }
+            this.tempSettings.providerSettings.webdav.password = value;
+            await this.plugin.saveSettings(this.tempSettings);
+          });
+          
+        // 添加密码可见性切换功能
+        const togglePasswordVisibility = (show: boolean) => {
+          isPasswordVisible = show;
+          text.inputEl.type = show ? 'text' : 'password';
+        };
+        
+        // 默认为文本模式（可见）
+        togglePasswordVisibility(true);
+        
+        // 获取输入框元素
+        const inputEl = text.inputEl;
+        
+        // 调整输入框样式，为图标留出空间
+        inputEl.style.paddingRight = '30px';
+        
+        // 创建一个容器来包含输入框和图标
+        const containerEl = inputEl.parentElement;
+        if (containerEl) {
+          containerEl.style.position = 'relative';
+          
+          // 添加显示/隐藏按钮到输入框容器中
+          const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
+          eyeIconContainer.style.position = 'absolute';
+          eyeIconContainer.style.right = '8px';
+          eyeIconContainer.style.top = '50%';
+          eyeIconContainer.style.transform = 'translateY(-50%)';
+          eyeIconContainer.style.cursor = 'pointer';
+          eyeIconContainer.style.zIndex = '1';
+          eyeIconContainer.style.fontSize = '16px';
+          eyeIconContainer.style.opacity = '0.7';
+          eyeIconContainer.style.color = 'var(--text-normal)';
+          eyeIconContainer.style.pointerEvents = 'auto';
+          eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
+          
+          eyeIconContainer.addEventListener('click', () => {
+            togglePasswordVisibility(!isPasswordVisible);
+            eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
+          });
+        }
+        
+        return text;
+      });
     
     // 添加必填标记
     passwordSettingContainer.nameEl.addClass('cloud-sync-required');
@@ -591,25 +778,201 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     const serverUrlSettingContainer = new Setting(webdavSection)
       .setName('服务器URL')
       .setDesc('WebDAV服务器URL地址')
-      .addText(text => text
-        .setValue(this.tempSettings.providerSettings.webdav?.serverUrl || '')
-        .setPlaceholder('例如: https://dav.jianguoyun.com/dav/')
-        .onChange(async (value) => {
-          if (!this.tempSettings.providerSettings.webdav) {
-            this.tempSettings.providerSettings.webdav = {
-              enabled: true,
-              username: '',
-              password: '',
-              serverUrl: '',
-              syncPath: ''
-            };
-          }
-          this.tempSettings.providerSettings.webdav.serverUrl = value;
-          await this.plugin.saveSettings(this.tempSettings);
-        }));
+      .addText(text => {
+        let timerId: NodeJS.Timeout | null = null;
+        
+        const inputEl = text.inputEl;
+        // 设置输入框宽度为更宽
+        inputEl.style.width = '300px';
+        
+        return text
+          .setValue(this.tempSettings.providerSettings.webdav?.serverUrl || '')
+          .setPlaceholder('例如: https://dav.jianguoyun.com/dav/')
+          .onChange(async (value) => {
+            if (!this.tempSettings.providerSettings.webdav) {
+              this.tempSettings.providerSettings.webdav = {
+                enabled: true,
+                username: '',
+                password: '',
+                serverUrl: '',
+                syncPath: ''
+              };
+            }
+            
+            // 保存当前设置状态
+            const oldUrl = this.tempSettings.providerSettings.webdav.serverUrl || '';
+            
+            // 更新设置
+            this.tempSettings.providerSettings.webdav.serverUrl = value;
+            await this.plugin.saveSettings(this.tempSettings);
+            
+            // 检查URL是否包含jianguoyun.com
+            const newUrl = value || '';
+            const hasJianguoyun = newUrl.toLowerCase().includes('jianguoyun.com');
+            const oldHasJianguoyun = oldUrl.toLowerCase().includes('jianguoyun.com');
+            
+            console.log('URL检查:', {oldUrl, newUrl, oldHasJianguoyun, hasJianguoyun});
+            
+            // 处理UI更新
+            if (oldHasJianguoyun !== hasJianguoyun) {
+              console.log('坚果云状态变化，将刷新界面');
+              // 当坚果云状态变化时，使用防抖处理完整刷新
+              if (timerId) {
+                clearTimeout(timerId);
+              }
+              
+              timerId = setTimeout(() => {
+                this.display();
+              }, 1000); // 用户停止输入1秒后再刷新
+            } else if (!hasJianguoyun && value) {
+              console.log('非坚果云URL，更新提示');
+              // 对于非坚果云URL，动态更新提示而不刷新整个页面
+              
+              // 清理之前的提示（如果存在）
+              providerSpecificSection.empty();
+              
+              // 添加非坚果云提示
+              const otherProviderSection = providerSpecificSection.createEl('div', { 
+                cls: 'cloud-sync-other-provider' 
+              });
+              
+              // 添加提示图标
+              otherProviderSection.createEl('span', { 
+                cls: 'cloud-sync-tip-icon',
+                text: '💡'
+              });
+              
+              // 添加提示信息
+              otherProviderSection.createEl('p', { 
+                text: '提示：若使用坚果云，输入包含jianguoyun.com的URL可启用优化选项',
+                cls: 'cloud-sync-tip-text'
+              });
+            } else if (!value) {
+              console.log('URL为空，清除提示');
+              // 当URL为空时清除提示
+              providerSpecificSection.empty();
+            }
+          });
+      });
     
     // 添加必填标记
     serverUrlSettingContainer.nameEl.addClass('cloud-sync-required');
+    
+    // 创建服务提供商特定设置部分
+    const providerSpecificSection = webdavSection.createEl('div', { 
+      cls: 'cloud-sync-provider-specific-settings'
+    });
+    
+    // 坚果云特定设置
+    // 只有当服务器URL包含jianguoyun.com时才显示这些设置
+    if (this.tempSettings.providerSettings.webdav?.serverUrl?.includes('jianguoyun.com')) {
+      // 添加坚果云特定设置容器
+      const jianguoyunSection = providerSpecificSection.createEl('div', { 
+        cls: 'cloud-sync-jianguoyun-settings' 
+      });
+      
+      // 添加标题带图标
+      const headerContainer = jianguoyunSection.createEl('div', { 
+        cls: 'cloud-sync-jianguoyun-header' 
+      });
+      
+      // 添加图标
+      headerContainer.createEl('span', { 
+        cls: 'cloud-sync-jianguoyun-icon',
+        text: '⚙️'
+      });
+      
+      // 添加标题
+      headerContainer.createEl('h4', { 
+        text: '坚果云特定设置', 
+        cls: 'cloud-sync-subtitle' 
+      });
+      
+      // 添加说明面板
+      const infoEl = jianguoyunSection.createEl('div', { 
+        cls: 'cloud-sync-info-panel' 
+      });
+      
+      // 添加信息图标
+      infoEl.createEl('span', { 
+        cls: 'cloud-sync-info-icon',
+        text: 'ℹ️'
+      });
+      
+      // 添加说明文本
+      infoEl.createEl('p', { 
+        text: '坚果云WebDAV服务有请求频率限制：免费用户每30分钟600次请求，付费用户每30分钟1500次请求。合理配置以下选项可以避免触发限制。',
+        cls: 'cloud-sync-info-text'
+      });
+      
+      // 用户类型设置
+      const accountTypeSetting = new Setting(jianguoyunSection)
+        .setName('账户类型')
+        .setDesc('选择您的坚果云账户类型，影响请求频率限制')
+        .addDropdown(dropdown => dropdown
+          .addOption('false', '免费用户 (600次/30分钟)')
+          .addOption('true', '付费用户 (1500次/30分钟)')
+          .setValue(this.tempSettings.providerSettings.webdav?.isPaidUser ? 'true' : 'false')
+          .onChange(async (value) => {
+            if (!this.tempSettings.providerSettings.webdav) {
+              this.tempSettings.providerSettings.webdav = {
+                enabled: true,
+                username: '',
+                password: '',
+                serverUrl: '',
+                syncPath: ''
+              };
+            }
+            this.tempSettings.providerSettings.webdav.isPaidUser = value === 'true';
+            await this.plugin.saveSettings(this.tempSettings);
+          }));
+      
+      // 为设置添加自定义样式
+      accountTypeSetting.settingEl.addClass('cloud-sync-jianguoyun-setting');
+      
+      // 请求延迟设置
+      const requestDelaySetting = new Setting(jianguoyunSection)
+        .setName('请求延迟')
+        .setDesc('较高的延迟可以减少被限流的可能性，但同步速度会变慢')
+        .addDropdown(dropdown => dropdown
+          .addOption('normal', '普通 (默认，200ms)')
+          .addOption('slow', '较慢 (500ms)')
+          .addOption('very-slow', '非常慢 (1000ms)')
+          .setValue(this.tempSettings.providerSettings.webdav?.requestDelay || 'normal')
+          .onChange(async (value) => {
+            if (!this.tempSettings.providerSettings.webdav) {
+              this.tempSettings.providerSettings.webdav = {
+                enabled: true,
+                username: '',
+                password: '',
+                serverUrl: '',
+                syncPath: ''
+              };
+            }
+            this.tempSettings.providerSettings.webdav.requestDelay = value as RequestDelayLevel;
+            await this.plugin.saveSettings(this.tempSettings);
+          }));
+      
+      // 为设置添加自定义样式
+      requestDelaySetting.settingEl.addClass('cloud-sync-jianguoyun-setting');
+    } else if (this.tempSettings.providerSettings.webdav?.serverUrl) {
+      // 对非坚果云用户显示简洁提示信息
+      const otherProviderSection = providerSpecificSection.createEl('div', { 
+        cls: 'cloud-sync-other-provider' 
+      });
+      
+      // 添加提示图标
+      otherProviderSection.createEl('span', { 
+        cls: 'cloud-sync-tip-icon',
+        text: '💡'
+      });
+      
+      // 添加提示信息(更简洁的版本)
+      otherProviderSection.createEl('p', { 
+        text: '提示：若使用坚果云，输入包含jianguoyun.com的URL可启用优化选项',
+        cls: 'cloud-sync-tip-text'
+      });
+    }
     
     // 同步路径设置
     new Setting(webdavSection)
@@ -806,11 +1169,36 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           // 初始为密码模式
           togglePasswordVisibility(false);
           
-          // 添加显示/隐藏按钮
-          const eyeIconContainer = text.inputEl.parentElement!.createDiv({ cls: 'eye-icon-container' });
-          eyeIconContainer.addEventListener('click', () => {
-            togglePasswordVisibility(!isPasswordVisible);
-          });
+          // 获取输入框元素
+          const inputEl = text.inputEl;
+          
+          // 调整输入框样式，为图标留出空间
+          inputEl.style.paddingRight = '30px';
+          
+          // 创建一个容器来包含输入框和图标
+          const containerEl = inputEl.parentElement;
+          if (containerEl) {
+            containerEl.style.position = 'relative';
+            
+            // 添加显示/隐藏按钮到输入框容器中
+            const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
+            eyeIconContainer.style.position = 'absolute';
+            eyeIconContainer.style.right = '8px';
+            eyeIconContainer.style.top = '50%';
+            eyeIconContainer.style.transform = 'translateY(-50%)';
+            eyeIconContainer.style.cursor = 'pointer';
+            eyeIconContainer.style.zIndex = '1';
+            eyeIconContainer.style.fontSize = '16px';
+            eyeIconContainer.style.opacity = '0.7';
+            eyeIconContainer.style.color = 'var(--text-normal)';
+            eyeIconContainer.style.pointerEvents = 'auto';
+            eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
+            
+            eyeIconContainer.addEventListener('click', () => {
+              togglePasswordVisibility(!isPasswordVisible);
+              eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
+            });
+          }
           
           return text;
         })

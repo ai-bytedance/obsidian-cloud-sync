@@ -29,6 +29,12 @@ export type SyncDirection = 'bidirectional' | 'uploadOnly' | 'downloadOnly';
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
 
 /**
+ * 请求延迟级别
+ * @author Bing
+ */
+export type RequestDelayLevel = 'normal' | 'slow' | 'very-slow';
+
+/**
  * WebDAV设置
  * @author Bing
  */
@@ -38,6 +44,9 @@ export interface WebDAVSettings {
   password: string;
   serverUrl: string;
   syncPath: string;
+  // 坚果云特定设置
+  isPaidUser?: boolean;
+  requestDelay?: RequestDelayLevel;
 }
 
 /**
@@ -132,7 +141,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
       username: '',
       password: '',
       serverUrl: '',
-      syncPath: ''
+      syncPath: '',
+      isPaidUser: false,
+      requestDelay: 'normal'
     }
   },
   
