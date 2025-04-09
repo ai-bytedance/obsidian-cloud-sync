@@ -230,6 +230,7 @@ export default class CloudSyncPlugin extends Plugin {
 	
 	/**
 	 * 自动同步
+	 * @author Bing
 	 */
 	private async autoSync() {
 		// 如果同步功能未启用，跳过
@@ -264,6 +265,7 @@ export default class CloudSyncPlugin extends Plugin {
 	
 	/**
 	 * 手动同步
+	 * @author Bing
 	 */
 	async manualSync() {
 		console.log('开始手动同步...');
@@ -310,6 +312,7 @@ export default class CloudSyncPlugin extends Plugin {
 	/**
 	 * 执行同步
 	 * @param isAutoSync 是否为自动同步
+	 * @author Bing
 	 */
 	private async performSync(isAutoSync: boolean) {
 		// 检查是否有启用的存储提供商
@@ -513,6 +516,7 @@ export default class CloudSyncPlugin extends Plugin {
 	/**
 	 * 确保远程根目录存在
 	 * @param provider 存储提供商
+	 * @author Bing
 	 */
 	private async ensureRemoteRootDir(provider: StorageProvider) {
 		try {
@@ -558,6 +562,7 @@ export default class CloudSyncPlugin extends Plugin {
 	 * 获取远程根路径
 	 * @param providerType 提供商类型
 	 * @returns 远程根路径
+	 * @author Bing
 	 */
 	private getRemoteBasePath(providerType: StorageProviderType): string {
 		// 获取设置中的同步路径
@@ -580,7 +585,8 @@ export default class CloudSyncPlugin extends Plugin {
 	
 	/**
 	 * 获取本地文件和文件夹列表
-	 * @returns 本地文件和文件夹列表
+	 * @returns 本地文件列表
+	 * @author Bing
 	 */
 	private async getLocalFiles(): Promise<{path: string, mtime: number, size: number, isFolder: boolean}[]> {
 		const items: {path: string, mtime: number, size: number, isFolder: boolean}[] = [];
@@ -812,7 +818,7 @@ export default class CloudSyncPlugin extends Plugin {
 					} catch (error) {
 						// 特别处理坚果云
 						if (providerType === 'webdav' && provider.getName() === 'WebDAV') {
-							console.warn(`删除坚果云文件夹失败，但继续处理: ${remoteFolder.path}`, error);
+							console.warn(`删除坚果云文件夹失败，但继续处理后续文件: ${remoteFolder.path}`, error);
 							// 对于坚果云，不中断整个同步过程
 							continue;
 						} else {
@@ -1303,7 +1309,7 @@ export default class CloudSyncPlugin extends Plugin {
 					} catch (error) {
 						// 特别处理坚果云
 						if (providerType === 'webdav' && provider.getName() === 'WebDAV') {
-							console.warn(`删除坚果云文件夹失败，但继续处理: ${remoteFolder.path}`, error);
+							console.warn(`删除坚果云文件夹失败，但继续处理后续文件: ${remoteFolder.path}`, error);
 							// 对于坚果云，不中断整个同步过程
 							continue;
 						} else {
@@ -2015,6 +2021,7 @@ export default class CloudSyncPlugin extends Plugin {
 	/**
 	 * 处理文件创建事件
 	 * @param file 创建的文件
+	 * @author Bing
 	 */
 	private handleFileCreated(file: TAbstractFile) {
 		// 忽略被过滤的文件
@@ -2027,6 +2034,7 @@ export default class CloudSyncPlugin extends Plugin {
 	/**
 	 * 处理文件修改事件
 	 * @param file 修改的文件
+	 * @author Bing
 	 */
 	private handleFileModified(file: TAbstractFile) {
 		// 忽略被过滤的文件
@@ -2039,6 +2047,7 @@ export default class CloudSyncPlugin extends Plugin {
 	/**
 	 * 处理文件删除事件
 	 * @param file 删除的文件
+	 * @author Bing
 	 */
 	private handleFileDeleted(file: TAbstractFile) {
 		// 忽略被过滤的文件
@@ -2052,6 +2061,7 @@ export default class CloudSyncPlugin extends Plugin {
 	 * 处理文件重命名事件
 	 * @param file 重命名的文件
 	 * @param oldPath 旧路径
+	 * @author Bing
 	 */
 	private handleFileRenamed(file: TAbstractFile, oldPath: string) {
 		// 忽略被过滤的文件
@@ -2065,6 +2075,7 @@ export default class CloudSyncPlugin extends Plugin {
 	 * 判断文件是否应该被忽略
 	 * @param file 文件
 	 * @returns 是否忽略
+	 * @author Bing
 	 */
 	private shouldIgnoreFile(file: TAbstractFile): boolean {
 		const path = file.path;
@@ -2096,6 +2107,7 @@ export default class CloudSyncPlugin extends Plugin {
 	
 	/**
 	 * 延迟同步，避免短时间内多次触发同步
+	 * @author Bing
 	 */
 	private debouncedSync = debounce(() => {
 		if (this.settings.enableSync) {
@@ -2105,6 +2117,7 @@ export default class CloudSyncPlugin extends Plugin {
 	
 	/**
 	 * 清除缓存
+	 * @author Bing
 	 */
 	async clearCache() {
 		// 实际实现中，需要清除同步状态、文件元数据缓存等
@@ -2114,6 +2127,7 @@ export default class CloudSyncPlugin extends Plugin {
 	
 	/**
 	 * 注册文件事件监听器
+	 * @author Bing
 	 */
 	private registerFileEvents() {
 		// 文件创建事件

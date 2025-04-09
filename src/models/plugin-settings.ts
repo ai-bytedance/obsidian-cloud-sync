@@ -1,30 +1,36 @@
 /**
  * 存储提供商类型
+ * @author Bing
  */
 export type StorageProviderType = 'webdav' | 'gdrive' | 'onedrive';
 
 /**
  * 冲突策略
+ * @author Bing
  */
 export type ConflictPolicy = 'overwrite' | 'keepLocal' | 'keepRemote' | 'merge';
 
 /**
  * 同步模式
+ * @author Bing
  */
 export type SyncMode = 'incremental' | 'full';
 
 /**
  * 同步方向
+ * @author Bing
  */
 export type SyncDirection = 'bidirectional' | 'uploadOnly' | 'downloadOnly';
 
 /**
  * 日志级别
+ * @author Bing
  */
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
 
 /**
  * WebDAV设置
+ * @author Bing
  */
 export interface WebDAVSettings {
   enabled: boolean;
@@ -36,6 +42,7 @@ export interface WebDAVSettings {
 
 /**
  * Google Drive设置
+ * @author Bing
  */
 export interface GoogleDriveSettings {
   enabled: boolean;
@@ -46,6 +53,7 @@ export interface GoogleDriveSettings {
 
 /**
  * OneDrive设置
+ * @author Bing
  */
 export interface OneDriveSettings {
   enabled: boolean;
@@ -56,6 +64,7 @@ export interface OneDriveSettings {
 
 /**
  * 加密设置
+ * @author Bing
  */
 export interface EncryptionSettings {
   enabled: boolean;
@@ -64,6 +73,7 @@ export interface EncryptionSettings {
 
 /**
  * 存储提供商设置
+ * @author Bing
  */
 export interface ProviderSettings {
   webdav?: WebDAVSettings;
@@ -73,6 +83,7 @@ export interface ProviderSettings {
 
 /**
  * 插件设置
+ * @author Bing
  */
 export interface PluginSettings {
   // 通用设置
@@ -106,6 +117,7 @@ export interface PluginSettings {
 
 /**
  * 默认设置
+ * @author Bing
  */
 export const DEFAULT_SETTINGS: PluginSettings = {
   // 通用设置

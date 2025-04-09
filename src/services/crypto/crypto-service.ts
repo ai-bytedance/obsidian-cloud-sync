@@ -1,5 +1,6 @@
 /**
  * 加密服务错误
+ * @author Bing
  */
 export class CryptoError extends Error {
   public readonly code: string;
@@ -19,6 +20,7 @@ export class CryptoError extends Error {
 /**
  * 加密服务接口
  * 这个接口定义了插件所需的加密功能
+ * @author Bing
  */
 export interface CryptoService {
   /**
@@ -26,6 +28,7 @@ export interface CryptoService {
    * @param content 要加密的内容
    * @param key 加密密钥
    * @returns 加密后的内容
+   * @author Bing
    */
   encrypt(content: ArrayBuffer, key: string): Promise<ArrayBuffer>;
   
@@ -34,12 +37,14 @@ export interface CryptoService {
    * @param encryptedContent 要解密的内容
    * @param key 解密密钥
    * @returns 解密后的内容
+   * @author Bing
    */
   decrypt(encryptedContent: ArrayBuffer, key: string): Promise<ArrayBuffer>;
   
   /**
    * 生成随机加密密钥
    * @returns 生成的密钥
+   * @author Bing
    */
   generateKey(): string;
   
@@ -47,6 +52,7 @@ export interface CryptoService {
    * 验证密钥是否有效
    * @param key 要验证的密钥
    * @returns 密钥是否有效
+   * @author Bing
    */
   validateKey(key: string): boolean;
 } 

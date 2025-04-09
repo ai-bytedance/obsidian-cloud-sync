@@ -12,6 +12,7 @@ import { WebDAVSettings } from '../../models/plugin-settings';
 /**
  * WebDAV存储提供商
  * 实现与WebDAV服务器的基础连接测试
+ * @author Bing
  */
 export class WebDAVProvider implements StorageProvider {
   private status: ConnectionStatus = ConnectionStatus.DISCONNECTED;
@@ -23,6 +24,7 @@ export class WebDAVProvider implements StorageProvider {
    * 创建WebDAV提供商实例
    * @param config WebDAV配置
    * @param app Obsidian应用实例
+   * @author Bing
    */
   constructor(config: WebDAVSettings, app: App) {
     this.config = config;
@@ -32,6 +34,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 获取提供商名称
    * @returns 名称
+   * @author Bing
    */
   getName(): string {
     return this.name;
@@ -40,6 +43,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 获取提供商类型
    * @returns 类型
+   * @author Bing
    */
   getType(): string {
     return 'webdav';
@@ -48,6 +52,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 获取连接状态
    * @returns 连接状态
+   * @author Bing
    */
   getStatus(): ConnectionStatus {
     return this.status;
@@ -56,6 +61,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 编码认证信息
    * @returns 认证头部
+   * @author Bing
    */
   private getAuthHeader(): string {
     try {
@@ -71,6 +77,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 获取针对不同WebDAV服务的可能Headers
    * @returns 请求头对象
+   * @author Bing
    */
   private getHeaders(): Record<string, string> {
     // 针对坚果云的特殊处理
@@ -94,6 +101,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 检查当前WebDAV服务是否为坚果云
    * @returns {boolean} 如果当前服务是坚果云则返回true
+   * @author Bing
    */
   private isJianGuoYun(): boolean {
     if (!this.config || !this.config.serverUrl) {
@@ -109,6 +117,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 连接到WebDAV服务器
    * @returns 连接是否成功
+   * @author Bing
    */
   async connect(): Promise<boolean> {
     try {
@@ -234,6 +243,7 @@ export class WebDAVProvider implements StorageProvider {
 
   /**
    * 断开与WebDAV服务器的连接
+   * @author Bing
    */
   async disconnect(): Promise<void> {
     this.status = ConnectionStatus.DISCONNECTED;
@@ -243,6 +253,7 @@ export class WebDAVProvider implements StorageProvider {
    * 确保URL格式正确
    * @param url 原始URL
    * @returns 格式化后的URL
+   * @author Bing
    */
   private formatUrl(url: string): string {
     let formattedUrl = url.trim();
@@ -263,6 +274,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 测试与WebDAV服务器的连接
    * @returns 连接是否成功
+   * @author Bing
    */
   async testConnection(): Promise<boolean> {
     try {
@@ -413,6 +425,7 @@ export class WebDAVProvider implements StorageProvider {
    * 处理WebDAV错误
    * @param error 错误对象
    * @returns 格式化的错误对象
+   * @author Bing
    */
   private handleError(error: any): StorageProviderError {
     console.log('处理WebDAV错误:', error);
@@ -483,6 +496,7 @@ export class WebDAVProvider implements StorageProvider {
    * 解析文件状态XML响应
    * @param xmlText XML文本
    * @returns 文件状态数组
+   * @author Bing
    */
   private parseFileListXML(xmlText: string): FileInfo[] {
     try {
@@ -729,6 +743,7 @@ export class WebDAVProvider implements StorageProvider {
    * 确保路径格式正确
    * @param path 路径
    * @returns 处理后的路径
+   * @author Bing
    */
   private formatPath(path: string): string {
     let formattedPath = path || '';
@@ -744,8 +759,9 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 获取远程文件列表
    * @param path 目录路径
-   * @param recursive 是否递归获取所有子文件夹内容 
+   * @param recursive 是否递归获取所有子文件夹内容
    * @returns 文件列表
+   * @author Bing
    */
   async listFiles(path: string = '', recursive: boolean = true): Promise<FileInfo[]> {
     try {
@@ -852,6 +868,7 @@ export class WebDAVProvider implements StorageProvider {
    * 用于服务器不支持depth=infinity的情况
    * @param path 起始路径
    * @returns 包含所有子文件夹内容的文件列表
+   * @author Bing
    */
   private async listFilesManualRecursive(path: string = ''): Promise<FileInfo[]> {
     console.log(`====== 开始手动递归获取文件列表: ${path || '/'} ======`);
@@ -967,6 +984,7 @@ export class WebDAVProvider implements StorageProvider {
    * 上传文件
    * @param remotePath 远程路径
    * @param content 文件内容
+   * @author Bing
    */
   async uploadFile(remotePath: string, content: string | ArrayBuffer): Promise<void> {
     try {
@@ -1114,6 +1132,7 @@ export class WebDAVProvider implements StorageProvider {
    * 确保目录存在，如果不存在则创建
    * @param path 目录路径
    * @param recursionLevel 递归层级计数，防止无限递归
+   * @author Bing
    */
   async ensureDirectoryExists(path: string, recursionLevel: number = 0): Promise<void> {
     try {
@@ -1272,6 +1291,7 @@ export class WebDAVProvider implements StorageProvider {
    * 创建文件夹
    * @param path 文件夹路径
    * @param recursionLevel 递归层级计数，防止无限递归
+   * @author Bing
    */
   async createFolder(path: string, recursionLevel: number = 0): Promise<void> {
     try {
@@ -1429,6 +1449,7 @@ export class WebDAVProvider implements StorageProvider {
    * 检查文件夹是否存在
    * @param path 文件夹路径
    * @returns 是否存在
+   * @author Bing
    */
   async folderExists(path: string): Promise<boolean> {
     try {
@@ -1642,6 +1663,8 @@ export class WebDAVProvider implements StorageProvider {
    * 下载文件
    * @param remotePath 远程路径
    * @param localPath 本地路径（在此实现中不使用，为了兼容接口）
+   * @returns 文件内容
+   * @author Bing
    */
   async downloadFile(remotePath: string, localPath: string): Promise<void> {
     try {
@@ -1686,6 +1709,7 @@ export class WebDAVProvider implements StorageProvider {
    * 下载文件内容
    * @param remotePath 远程路径
    * @returns 文件内容
+   * @author Bing
    */
   async downloadFileContent(remotePath: string): Promise<string | ArrayBuffer> {
     try {
@@ -1778,6 +1802,7 @@ export class WebDAVProvider implements StorageProvider {
    * 判断是否为二进制文件类型
    * @param fileExt 文件扩展名
    * @returns 是否为二进制文件
+   * @author Bing
    */
   private isBinaryFileType(fileExt: string): boolean {
     const binaryExtensions = [
@@ -1794,6 +1819,7 @@ export class WebDAVProvider implements StorageProvider {
    * 判断是否为二进制内容类型
    * @param contentType Content-Type头
    * @returns 是否为二进制内容
+   * @author Bing
    */
   private isBinaryContentType(contentType: string): boolean {
     return !contentType.includes('text/') && 
@@ -1806,6 +1832,7 @@ export class WebDAVProvider implements StorageProvider {
    * 判断是否为文本内容类型
    * @param contentType Content-Type头
    * @returns 是否为文本内容
+   * @author Bing
    */
   private isTextContentType(contentType: string): boolean {
     return contentType.includes('text/') || 
@@ -1817,6 +1844,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 删除文件
    * @param remotePath 远程路径
+   * @author Bing
    */
   async deleteFile(remotePath: string): Promise<void> {
     try {
@@ -1972,6 +2000,7 @@ export class WebDAVProvider implements StorageProvider {
    * 移动/重命名文件
    * @param oldPath 旧路径
    * @param newPath 新路径
+   * @author Bing
    */
   async moveFile(oldPath: string, newPath: string): Promise<void> {
     try {
@@ -2021,6 +2050,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 删除文件夹
    * @param path 文件夹路径
+   * @author Bing
    */
   async deleteFolder(path: string): Promise<void> {
     try {
@@ -2122,6 +2152,7 @@ export class WebDAVProvider implements StorageProvider {
    * 获取文件元数据
    * @param path 文件路径
    * @returns 文件元数据
+   * @author Bing
    */
   async getFileMetadata(path: string): Promise<FileMetadata> {
     try {
@@ -2432,6 +2463,7 @@ export class WebDAVProvider implements StorageProvider {
   /**
    * 获取服务配额信息
    * @returns 配额信息
+   * @author Bing
    */
   async getQuota(): Promise<{ used: number; available: number; total: number }> {
     try {

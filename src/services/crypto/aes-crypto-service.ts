@@ -4,6 +4,7 @@ import * as CryptoJS from 'crypto-js';
 /**
  * AES加密服务实现
  * 使用AES-256加密算法
+ * @author Bing
  */
 export class AESCryptoService implements CryptoService {
   // 密钥长度(字节)
@@ -14,6 +15,7 @@ export class AESCryptoService implements CryptoService {
    * @param content 要加密的内容
    * @param key 加密密钥
    * @returns 加密后的内容
+   * @author Bing
    */
   async encrypt(content: ArrayBuffer, key: string): Promise<ArrayBuffer> {
     try {
@@ -55,6 +57,7 @@ export class AESCryptoService implements CryptoService {
    * @param encryptedContent 要解密的内容
    * @param key 解密密钥
    * @returns 解密后的内容
+   * @author Bing
    */
   async decrypt(encryptedContent: ArrayBuffer, key: string): Promise<ArrayBuffer> {
     try {
@@ -103,6 +106,7 @@ export class AESCryptoService implements CryptoService {
   /**
    * 生成随机加密密钥
    * @returns 生成的密钥
+   * @author Bing
    */
   generateKey(): string {
     // 生成一个16字节的随机密钥
@@ -114,6 +118,7 @@ export class AESCryptoService implements CryptoService {
    * 验证密钥是否有效
    * @param key 要验证的密钥
    * @returns 密钥是否有效
+   * @author Bing
    */
   validateKey(key: string): boolean {
     // 简单验证密钥长度是否符合要求
@@ -124,6 +129,7 @@ export class AESCryptoService implements CryptoService {
    * 将ArrayBuffer转换为WordArray
    * @param arrayBuffer ArrayBuffer对象
    * @returns WordArray对象
+   * @author Bing
    */
   private arrayBufferToWordArray(arrayBuffer: ArrayBuffer): CryptoJS.lib.WordArray {
     const u8arr = new Uint8Array(arrayBuffer);
@@ -143,6 +149,7 @@ export class AESCryptoService implements CryptoService {
    * 将WordArray转换为ArrayBuffer
    * @param wordArray WordArray对象
    * @returns ArrayBuffer对象
+   * @author Bing
    */
   private wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
     const words = wordArray.words;

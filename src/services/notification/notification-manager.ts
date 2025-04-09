@@ -2,6 +2,7 @@ import { Notice } from 'obsidian';
 
 /**
  * 通知管理器类，用于管理通知的显示，确保正确的顺序并防止重复通知
+ * @author Bing
  */
 export class NotificationManager {
     // 活动通知映射(id -> Notice对象)
@@ -16,6 +17,7 @@ export class NotificationManager {
      * @param id 通知的唯一标识
      * @param message 通知消息内容
      * @param timeout 通知显示时间(毫秒)
+     * @author Bing
      */
     public show(id: string, message: string, timeout: number = 4000): void {
         // 如果存在相同ID的通知，先清除它
@@ -35,6 +37,7 @@ export class NotificationManager {
 
     /**
      * 处理通知队列
+     * @author Bing
      */
     private async processQueue(): Promise<void> {
         if (this.queue.length === 0) {
@@ -62,6 +65,7 @@ export class NotificationManager {
     /**
      * 清除特定ID的通知
      * @param id 通知ID
+     * @author Bing
      */
     public clear(id: string): void {
         if (this.activeNotifications.has(id)) {
@@ -75,6 +79,7 @@ export class NotificationManager {
 
     /**
      * 清除所有通知
+     * @author Bing
      */
     public clearAll(): void {
         for (const notice of this.activeNotifications.values()) {

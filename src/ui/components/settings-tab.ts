@@ -5,6 +5,10 @@ import { WebDAVProvider } from '../../services/storage/webdav-provider';
 import { ConnectionStatus } from '../../services/storage/storage-provider';
 import { ConflictPolicy, SyncDirection, SyncMode } from '../../models/plugin-settings';
 
+/**
+ * Cloud Sync插件设置界面
+ * @author Bing
+ */
 export class CloudSyncSettingTab extends PluginSettingTab {
   plugin: CloudSyncPlugin;
   tempSettings: PluginSettings;
