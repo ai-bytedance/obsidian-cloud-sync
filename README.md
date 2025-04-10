@@ -6,7 +6,8 @@
 
 一款强大的 Obsidian 插件，支持将笔记自动同步到多种云盘服务，提供端到端加密保护，让您的笔记既安全又便捷。
 
-![demo](https://github.com/user-attachments/assets/bda27f32-5b15-469c-a259-d380247b1f27)
+![webdav](https://github.com/user-attachments/assets/e465e1d5-e0a6-4da5-928c-eb9ac5e33668)
+
 
 ## 核心功能
 
