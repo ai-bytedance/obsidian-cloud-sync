@@ -150,4 +150,124 @@
   padding: 0.2em 0.5em;
   border-radius: 1em;
   font-size: 0.85em;
+}
+
+/* 坚果云特定设置样式 */
+.cloud-sync-jianguoyun-settings {
+  margin: 1em 0;
+  padding: 1em;
+  border-radius: 5px;
+  background-color: var(--background-primary-alt);
+  border-left: 3px solid var(--interactive-accent);
+}
+
+.cloud-sync-jianguoyun-header {
+  margin-bottom: 0.75em;
+}
+
+.cloud-sync-jianguoyun-header h4 {
+  font-size: 1em !important;
+  font-weight: 600 !important;
+  color: var(--text-accent) !important;
+  margin: 0 0 0.5em 0 !important;
+}
+
+.cloud-sync-info-panel {
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  padding: 0.75em;
+  margin-bottom: 1em;
+}
+
+.cloud-sync-info-text {
+  font-size: 0.9em !important;
+  color: var(--text-normal) !important;
+  margin: 0 !important;
+  line-height: 1.5 !important;
+}
+
+/* 高亮显示提示文本 */
+.cloud-sync-info-text strong,
+.cloud-sync-info-text b,
+.cloud-sync-info-text .highlight,
+.cloud-sync-tip-text .highlight {
+  color: var(--text-error) !important;
+  font-weight: 600 !important;
+  background-color: rgba(255, 0, 0, 0.05) !important;
+  padding: 1px 3px !important;
+  border-radius: 3px !important;
+  display: inline-block !important;
+}
+
+/* 确保坚果云设置项样式一致性 */
+.cloud-sync-jianguoyun-setting {
+  padding: 0.75em 0 !important;
+}
+
+.cloud-sync-jianguoyun-setting .setting-item-info {
+  font-size: 0.9em !important;
+}
+
+.cloud-sync-jianguoyun-setting .setting-item-name {
+  font-size: 0.95em !important;
+  font-weight: 500 !important;
+}
+
+.cloud-sync-jianguoyun-setting .setting-item-description {
+  font-size: 0.85em !important;
+}
+
+/* 提示信息样式 */
+.cloud-sync-other-provider {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.75em;
+  background-color: var(--background-primary-alt);
+  border-radius: 4px;
+  margin: 1em 0;
+  border-left: 3px solid var(--text-error);
+}
+
+.cloud-sync-tip-icon {
+  font-size: 1em;
+  margin-right: 0.5em;
+  flex-shrink: 0;
+  color: var(--text-error) !important;
+}
+
+.cloud-sync-tip-text {
+  font-size: 0.9em !important;
+  color: var(--text-normal) !important;
+  margin: 0 !important;
+  line-height: 1.5 !important;
+}
+
+.cloud-sync-tip-text .highlight {
+  color: var(--text-error) !important;
+  font-weight: 600 !important;
+}
+
+/* 响应式样式调整，确保在各种窗口大小下保持一致 */
+@media (max-width: 768px) {
+  .cloud-sync-jianguoyun-settings,
+  .cloud-sync-other-provider {
+    padding: 0.75em;
+  }
+  
+  .cloud-sync-jianguoyun-header h4 {
+    font-size: 0.95em !important;
+  }
+  
+  .cloud-sync-info-text,
+  .cloud-sync-tip-text {
+    font-size: 0.85em !important;
+  }
+  
+  .cloud-sync-jianguoyun-setting .setting-item-name {
+    font-size: 0.9em !important;
+  }
+  
+  .cloud-sync-jianguoyun-setting .setting-item-description {
+    font-size: 0.8em !important;
+  }
 } 

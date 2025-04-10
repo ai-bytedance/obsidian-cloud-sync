@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting, ButtonComponent } from 'obsidian';
 import CloudSyncPlugin from '../../../main';
 import { PluginSettings, WebDAVSettings, RequestDelayLevel } from '../../models/plugin-settings';
 import { WebDAVProvider } from '../../services/storage/webdav-provider';
@@ -21,42 +21,31 @@ const JIANGUOYUN_SETTINGS_STYLES = `
 }
 
 .cloud-sync-jianguoyun-header {
-  display: flex;
-  align-items: center;
   margin-bottom: 10px;
-}
-
-.cloud-sync-jianguoyun-icon {
-  margin-right: 8px;
-  font-size: 18px;
 }
 
 .cloud-sync-subtitle {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-normal);
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--text-normal) !important;
+  line-height: 24px !important;
+  font-family: var(--font-interface) !important;
 }
 
 .cloud-sync-info-panel {
-  display: flex;
   background-color: rgba(14, 101, 235, 0.1);
   border-radius: 6px;
   padding: 10px 12px;
   margin-bottom: 15px;
 }
 
-.cloud-sync-info-icon {
-  margin-right: 10px;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
 .cloud-sync-info-text {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--text-normal);
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  color: var(--text-normal) !important;
+  font-family: var(--font-interface) !important;
 }
 
 .cloud-sync-jianguoyun-setting {
@@ -88,9 +77,10 @@ const JIANGUOYUN_SETTINGS_STYLES = `
 
 .cloud-sync-tip-text {
   margin: 0;
-  font-size: 12px;
-  line-height: 1.3;
-  color: var(--text-muted);
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  color: var(--text-normal) !important;
+  font-family: var(--font-interface) !important;
 }
 
 .cloud-sync-required::after {
@@ -471,37 +461,58 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     new Setting(generalSection)
       .setName('忽略文件夹')
       .setDesc('忽略指定文件夹 (用逗号分隔，支持通配符如 *.git)')
-      .addTextArea(text => text
-        .setValue(this.tempSettings.ignoreFolders.join(', '))
-        .setPlaceholder('例如: .git, .obsidian, node_modules')
-        .onChange(async (value) => {
-          this.tempSettings.ignoreFolders = value.split(',').map(item => item.trim()).filter(item => !!item);
-          await this.plugin.saveSettings(this.tempSettings);
-        }));
+      .addTextArea(text => {
+        const textArea = text.setValue(this.tempSettings.ignoreFolders.join(', '))
+          .setPlaceholder('例如: .git, .obsidian, node_modules')
+          .onChange(async (value) => {
+            this.tempSettings.ignoreFolders = value.split(',').map(item => item.trim()).filter(item => !!item);
+            await this.plugin.saveSettings(this.tempSettings);
+          });
+        
+        // 设置文本区域宽度
+        textArea.inputEl.style.width = '300px';
+        textArea.inputEl.style.height = '60px';
+        
+        return textArea;
+      });
     
     // 忽略文件设置
     new Setting(generalSection)
       .setName('忽略文件')
       .setDesc('忽略指定文件 (用逗号分隔，支持通配符如 *.tmp)')
-      .addTextArea(text => text
-        .setValue(this.tempSettings.ignoreFiles.join(', '))
-        .setPlaceholder('例如: .DS_Store, desktop.ini')
-        .onChange(async (value) => {
-          this.tempSettings.ignoreFiles = value.split(',').map(item => item.trim()).filter(item => !!item);
-          await this.plugin.saveSettings(this.tempSettings);
-        }));
+      .addTextArea(text => {
+        const textArea = text.setValue(this.tempSettings.ignoreFiles.join(', '))
+          .setPlaceholder('例如: .DS_Store, desktop.ini')
+          .onChange(async (value) => {
+            this.tempSettings.ignoreFiles = value.split(',').map(item => item.trim()).filter(item => !!item);
+            await this.plugin.saveSettings(this.tempSettings);
+          });
+        
+        // 设置文本区域宽度
+        textArea.inputEl.style.width = '300px';
+        textArea.inputEl.style.height = '60px';
+        
+        return textArea;
+      });
     
     // 忽略扩展名设置
     new Setting(generalSection)
       .setName('忽略扩展名')
       .setDesc('忽略指定扩展名 (用逗号分隔，不需要加点)')
-      .addTextArea(text => text
-        .setValue(this.tempSettings.ignoreExtensions.join(', '))
-        .setPlaceholder('例如: tmp, bak, swp')
-        .onChange(async (value) => {
-          this.tempSettings.ignoreExtensions = value.split(',').map(item => item.trim()).filter(item => !!item);
-          await this.plugin.saveSettings(this.tempSettings);
-        }));
+      .addTextArea(text => {
+        const textArea = text.setValue(this.tempSettings.ignoreExtensions.join(', '))
+          .setPlaceholder('例如: tmp, bak, swp')
+          .onChange(async (value) => {
+            this.tempSettings.ignoreExtensions = value.split(',').map(item => item.trim()).filter(item => !!item);
+            await this.plugin.saveSettings(this.tempSettings);
+          });
+        
+        // 设置文本区域宽度
+        textArea.inputEl.style.width = '300px';
+        textArea.inputEl.style.height = '60px';
+        
+        return textArea;
+      });
   }
 
   // 云盘选择部分
@@ -641,7 +652,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
       .setName('用户名')
       .setDesc('WebDAV用户名')
       .addText(text => {
-        let isTextVisible = true;
+        let isTextVisible = false;
         
         text.setValue(this.tempSettings.providerSettings.webdav?.username || '')
           .setPlaceholder('请输入WebDAV用户名')
@@ -665,8 +676,8 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           text.inputEl.type = show ? 'text' : 'password';
         };
         
-        // 默认为文本模式（可见）
-        toggleTextVisibility(true);
+        // 默认为密码模式（隐藏）
+        toggleTextVisibility(false);
         
         // 获取输入框元素
         const inputEl = text.inputEl;
@@ -710,7 +721,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
       .setName('密码')
       .setDesc('WebDAV密码')
       .addText(text => {
-        let isPasswordVisible = true;
+        let isPasswordVisible = false;
         
         text.setValue(this.tempSettings.providerSettings.webdav?.password || '')
           .setPlaceholder('请输入WebDAV密码')
@@ -734,8 +745,8 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           text.inputEl.type = show ? 'text' : 'password';
         };
         
-        // 默认为文本模式（可见）
-        togglePasswordVisibility(true);
+        // 默认为密码模式（隐藏）
+        togglePasswordVisibility(false);
         
         // 获取输入框元素
         const inputEl = text.inputEl;
@@ -844,9 +855,8 @@ export class CloudSyncSettingTab extends PluginSettingTab {
               
               // 添加提示信息
               otherProviderSection.createEl('p', { 
-                text: '提示：若使用坚果云，输入包含jianguoyun.com的URL可启用优化选项',
                 cls: 'cloud-sync-tip-text'
-              });
+              }).innerHTML = '提示：若使用坚果云，输入包含<span class="highlight">jianguoyun.com</span>的URL可启用优化选项';
             } else if (!value) {
               console.log('URL为空，清除提示');
               // 当URL为空时清除提示
@@ -867,46 +877,33 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     // 只有当服务器URL包含jianguoyun.com时才显示这些设置
     if (this.tempSettings.providerSettings.webdav?.serverUrl?.includes('jianguoyun.com')) {
       // 添加坚果云特定设置容器
-      const jianguoyunSection = providerSpecificSection.createEl('div', { 
+      const jianguoyunSettingsContainer = providerSpecificSection.createEl('div', { 
         cls: 'cloud-sync-jianguoyun-settings' 
       });
-      
-      // 添加标题带图标
-      const headerContainer = jianguoyunSection.createEl('div', { 
+
+      // 使用一个简单的div作为标题容器
+      const headerContainer = jianguoyunSettingsContainer.createEl('div', { 
         cls: 'cloud-sync-jianguoyun-header' 
       });
-      
-      // 添加图标
-      headerContainer.createEl('span', { 
-        cls: 'cloud-sync-jianguoyun-icon',
-        text: '⚙️'
-      });
-      
-      // 添加标题
+
+      // 添加标题文本
       headerContainer.createEl('h4', { 
         text: '坚果云特定设置', 
         cls: 'cloud-sync-subtitle' 
       });
-      
+
       // 添加说明面板
-      const infoEl = jianguoyunSection.createEl('div', { 
+      const infoPanel = jianguoyunSettingsContainer.createEl('div', { 
         cls: 'cloud-sync-info-panel' 
       });
-      
-      // 添加信息图标
-      infoEl.createEl('span', { 
-        cls: 'cloud-sync-info-icon',
-        text: 'ℹ️'
-      });
-      
+
       // 添加说明文本
-      infoEl.createEl('p', { 
-        text: '坚果云WebDAV服务有请求频率限制：免费用户每30分钟600次请求，付费用户每30分钟1500次请求。合理配置以下选项可以避免触发限制。',
+      infoPanel.createEl('p', { 
         cls: 'cloud-sync-info-text'
-      });
+      }).innerHTML = '坚果云<span class="highlight">免费用户每30分钟最多600次请求，付费用户最多1500次请求</span>。适当调整延迟可以避免同步问题。';
       
       // 用户类型设置
-      const accountTypeSetting = new Setting(jianguoyunSection)
+      const accountTypeSetting = new Setting(jianguoyunSettingsContainer)
         .setName('账户类型')
         .setDesc('选择您的坚果云账户类型，影响请求频率限制')
         .addDropdown(dropdown => dropdown
@@ -931,7 +928,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
       accountTypeSetting.settingEl.addClass('cloud-sync-jianguoyun-setting');
       
       // 请求延迟设置
-      const requestDelaySetting = new Setting(jianguoyunSection)
+      const requestDelaySetting = new Setting(jianguoyunSettingsContainer)
         .setName('请求延迟')
         .setDesc('较高的延迟可以减少被限流的可能性，但同步速度会变慢')
         .addDropdown(dropdown => dropdown
@@ -969,9 +966,8 @@ export class CloudSyncSettingTab extends PluginSettingTab {
       
       // 添加提示信息(更简洁的版本)
       otherProviderSection.createEl('p', { 
-        text: '提示：若使用坚果云，输入包含jianguoyun.com的URL可启用优化选项',
         cls: 'cloud-sync-tip-text'
-      });
+      }).innerHTML = '提示：若使用坚果云，输入包含<span class="highlight">jianguoyun.com</span>的URL可启用优化选项';
     }
     
     // 同步路径设置
@@ -1147,6 +1143,15 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         .addText(text => {
           let isPasswordVisible = false;
           
+          // 设置输入框类型为密码
+          text.inputEl.type = 'password';
+          
+          // 获取输入框元素
+          const inputEl = text.inputEl;
+          
+          // 调整输入框样式，为图标留出空间
+          inputEl.style.paddingRight = '30px';
+          
           text.setPlaceholder('16位加密密钥')
             .setValue(this.tempSettings.encryption.key)
             .onChange(async (value) => {
@@ -1160,21 +1165,6 @@ export class CloudSyncSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings(this.tempSettings);
             });
           
-          // 添加密码可见性切换图标
-          const togglePasswordVisibility = (show: boolean) => {
-            isPasswordVisible = show;
-            text.inputEl.type = show ? 'text' : 'password';
-          };
-          
-          // 初始为密码模式
-          togglePasswordVisibility(false);
-          
-          // 获取输入框元素
-          const inputEl = text.inputEl;
-          
-          // 调整输入框样式，为图标留出空间
-          inputEl.style.paddingRight = '30px';
-          
           // 创建一个容器来包含输入框和图标
           const containerEl = inputEl.parentElement;
           if (containerEl) {
@@ -1187,41 +1177,91 @@ export class CloudSyncSettingTab extends PluginSettingTab {
             eyeIconContainer.style.top = '50%';
             eyeIconContainer.style.transform = 'translateY(-50%)';
             eyeIconContainer.style.cursor = 'pointer';
-            eyeIconContainer.style.zIndex = '1';
+            eyeIconContainer.style.zIndex = '10';
             eyeIconContainer.style.fontSize = '16px';
             eyeIconContainer.style.opacity = '0.7';
             eyeIconContainer.style.color = 'var(--text-normal)';
             eyeIconContainer.style.pointerEvents = 'auto';
             eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
             
+            // 添加密码可见性切换功能
+            const togglePasswordVisibility = (show: boolean) => {
+              isPasswordVisible = show;
+              inputEl.type = show ? 'text' : 'password';
+              eyeIconContainer.innerHTML = show ? '👁️' : '👁️‍🗨️';
+            };
+            
             eyeIconContainer.addEventListener('click', () => {
               togglePasswordVisibility(!isPasswordVisible);
-              eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
             });
           }
           
           return text;
-        })
-        .addExtraButton(button => button
-          .setIcon('reset')
-          .setTooltip('生成随机密钥')
-          .onClick(async () => {
-            // 通常我们会使用AESCryptoService.generateKey()，但为简化，这里直接生成
-            const randGen = () => Math.floor(Math.random() * 16).toString(16);
-            const randomKey = Array(16).fill(0).map(() => randGen()).join('');
-            
-            this.tempSettings.encryption.key = randomKey;
-            await this.plugin.saveSettings(this.tempSettings);
-            this.display(); // 刷新界面
-            this.plugin.notificationManager.show('encryption-complete', '已生成新的加密密钥', 4000);
-          }))
-        .addExtraButton(button => button
-          .setIcon('copy')
-          .setTooltip('复制密钥')
-          .onClick(() => {
-            navigator.clipboard.writeText(this.tempSettings.encryption.key);
-            this.plugin.notificationManager.show('encryption-copy', '加密密钥已复制到剪贴板', 4000);
-          }));
+        });
+      
+      // 为加密密钥单独添加按钮，而不是使用addExtraButton
+      const encryptionKeyButtonContainer = encryptionKeySetting.settingEl.createDiv('setting-item-control');
+      encryptionKeyButtonContainer.style.flexShrink = '0';
+      encryptionKeyButtonContainer.style.display = 'flex';
+      encryptionKeyButtonContainer.style.marginLeft = '8px';
+      encryptionKeyButtonContainer.style.gap = '6px'; // 按钮之间的间距
+      
+      // 添加生成随机密钥按钮
+      const genKeyButton = new ButtonComponent(encryptionKeyButtonContainer);
+      genKeyButton
+        .setIcon('reset')
+        .setTooltip('生成随机密钥')
+        .onClick(async () => {
+          // 通常我们会使用AESCryptoService.generateKey()，但为简化，这里直接生成
+          const randGen = () => Math.floor(Math.random() * 16).toString(16);
+          const randomKey = Array(16).fill(0).map(() => randGen()).join('');
+          
+          this.tempSettings.encryption.key = randomKey;
+          await this.plugin.saveSettings(this.tempSettings);
+          
+          // 不再刷新整个设置界面，而是直接更新输入框的值
+          const inputFields = securitySection.querySelectorAll('input');
+          inputFields.forEach(input => {
+            if (input.placeholder === '16位加密密钥') {
+              input.value = randomKey;
+              // 不改变当前密码可见性状态
+            }
+          });
+          
+          this.plugin.notificationManager.show('encryption-complete', '已生成新的加密密钥', 4000);
+        });
+      
+      // 美化生成按钮
+      const genKeyEl = genKeyButton.buttonEl;
+      genKeyEl.style.borderRadius = '4px';
+      genKeyEl.style.padding = '2px 6px';
+      genKeyEl.style.backgroundColor = 'var(--interactive-accent)';
+      genKeyEl.style.color = 'var(--text-on-accent)';
+      genKeyEl.style.fontSize = '11px';
+      genKeyEl.style.minWidth = 'auto';
+      genKeyEl.style.height = '24px';
+      genKeyEl.style.lineHeight = '1';
+      
+      // 添加复制密钥按钮
+      const copyKeyButton = new ButtonComponent(encryptionKeyButtonContainer);
+      copyKeyButton
+        .setIcon('copy')
+        .setTooltip('复制密钥')
+        .onClick(() => {
+          navigator.clipboard.writeText(this.tempSettings.encryption.key);
+          this.plugin.notificationManager.show('encryption-copy', '加密密钥已复制到剪贴板', 4000);
+        });
+      
+      // 美化复制按钮
+      const copyKeyEl = copyKeyButton.buttonEl;
+      copyKeyEl.style.borderRadius = '4px';
+      copyKeyEl.style.padding = '2px 6px';
+      copyKeyEl.style.backgroundColor = 'var(--interactive-accent-hover)';
+      copyKeyEl.style.color = 'var(--text-on-accent)';
+      copyKeyEl.style.fontSize = '11px';
+      copyKeyEl.style.minWidth = 'auto';
+      copyKeyEl.style.height = '24px';
+      copyKeyEl.style.lineHeight = '1';
       
       encryptionKeySetting.descEl.createDiv({
         text: '必须输入16位密钥。请务必备份密钥，密钥丢失将导致无法恢复加密的数据！',

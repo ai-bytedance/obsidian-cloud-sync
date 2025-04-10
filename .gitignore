@@ -38,3 +38,12 @@ yarn-error.log*
 .obsidian/
 .obsidian-dev/
 .hotreload 
+
+# 测试
+tests/*
+
+# docs
+docs/*
+
+# md文件
+*.md

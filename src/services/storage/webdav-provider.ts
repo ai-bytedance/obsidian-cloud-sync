@@ -104,11 +104,18 @@ export class WebDAVProvider implements StorageProvider {
    * @author Bing
    */
   private isJianGuoYun(): boolean {
-    if (!this.config || !this.config.serverUrl) {
+    if (!this.config || !this.config.serverUrl || this.config.serverUrl.trim() === '') {
       return false;
     }
     
-    const serverUrl = this.config.serverUrl.toLowerCase();
+    const serverUrl = this.config.serverUrl.toLowerCase().trim();
+    
+    // 确保URL有效，防止错误匹配
+    if (!serverUrl.includes('.') && !serverUrl.includes('localhost')) {
+      console.warn(`isJianGuoYun: URL缺少有效域名: ${serverUrl}, 不会识别为坚果云`);
+      return false;
+    }
+    
     return serverUrl.includes('dav.jianguoyun.com') || 
            serverUrl.includes('jianguoyun') || 
            serverUrl.includes('jgy');
@@ -131,10 +138,18 @@ export class WebDAVProvider implements StorageProvider {
         throw new StorageProviderError('WebDAV配置不完整，请检查用户名和密码', 'CONFIG_ERROR');
       }
       
-      if (!this.config.serverUrl) {
+      if (!this.config.serverUrl || this.config.serverUrl.trim() === '') {
         console.error('WebDAV配置不完整，缺少服务器URL');
         this.status = ConnectionStatus.ERROR;
         throw new StorageProviderError('WebDAV配置不完整，请检查服务器URL', 'CONFIG_ERROR');
+      }
+      
+      // 检查URL是否包含有效域名
+      const urlToCheck = this.config.serverUrl.trim();
+      if (!urlToCheck.includes('.') && !urlToCheck.includes('localhost')) {
+        console.error(`URL缺少有效域名: ${urlToCheck}`);
+        this.status = ConnectionStatus.ERROR;
+        throw new StorageProviderError('WebDAV服务器URL缺少有效域名，请检查URL格式', 'CONFIG_ERROR');
       }
       
       // 使用 Obsidian 的 requestUrl API 测试连接
@@ -256,7 +271,19 @@ export class WebDAVProvider implements StorageProvider {
    * @author Bing
    */
   private formatUrl(url: string): string {
+    // 检查 URL 是否为空或未定义
+    if (!url || url.trim() === '') {
+      console.warn('尝试格式化空URL，将返回默认值');
+      return 'https://example.com/'; // 返回一个安全的默认URL，这不会被实际使用，只是为了防止错误
+    }
+
     let formattedUrl = url.trim();
+    
+    // 检查 URL 是否包含域名部分
+    if (!formattedUrl.includes('.') && !formattedUrl.includes('localhost')) {
+      console.warn(`URL缺少有效域名: ${formattedUrl}`);
+      return formattedUrl; // 返回原始值，避免格式化不完整的URL
+    }
     
     // 确保URL以http或https开头
     if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
@@ -280,6 +307,19 @@ export class WebDAVProvider implements StorageProvider {
     try {
       // 连接测试不应受同步功能开关影响
       console.log('开始测试 WebDAV 连接...');
+      
+      // 检查服务器URL是否有效
+      if (!this.config || !this.config.serverUrl || this.config.serverUrl.trim() === '') {
+        console.error('无效的服务器URL');
+        throw new StorageProviderError('无效的服务器URL，请提供有效的WebDAV服务器地址', 'CONFIG_ERROR');
+      }
+      
+      // 检查URL是否包含有效域名
+      const urlToCheck = this.config.serverUrl.trim();
+      if (!urlToCheck.includes('.') && !urlToCheck.includes('localhost')) {
+        console.error(`URL缺少有效域名: ${urlToCheck}`);
+        throw new StorageProviderError('WebDAV服务器URL缺少有效域名，请检查URL格式', 'CONFIG_ERROR');
+      }
       
       // 格式化URL
       const serverUrl = this.formatUrl(this.config.serverUrl);
