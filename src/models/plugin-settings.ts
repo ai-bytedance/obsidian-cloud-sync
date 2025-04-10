@@ -2,7 +2,7 @@
  * 存储提供商类型
  * @author Bing
  */
-export type StorageProviderType = 'webdav' | 'gdrive' | 'onedrive';
+export type StorageProviderType = 'webdav' | 'gdrive' | 'onedrive' | 'icloud' | 'github';
 
 /**
  * 冲突策略
@@ -72,6 +72,30 @@ export interface OneDriveSettings {
 }
 
 /**
+ * iCloud设置
+ * @author Bing
+ */
+export interface iCloudSettings {
+  enabled: boolean;
+  appId: string;
+  password: string;
+  syncPath: string;
+}
+
+/**
+ * GitHub设置
+ * @author Bing
+ */
+export interface GitHubSettings {
+  enabled: boolean;
+  username: string;
+  token: string;
+  repository: string;
+  branch: string;
+  syncPath: string;
+}
+
+/**
  * 加密设置
  * @author Bing
  */
@@ -88,6 +112,8 @@ export interface ProviderSettings {
   webdav?: WebDAVSettings;
   gdrive?: GoogleDriveSettings;
   onedrive?: OneDriveSettings;
+  icloud?: iCloudSettings;
+  github?: GitHubSettings;
 }
 
 /**
@@ -144,6 +170,20 @@ export const DEFAULT_SETTINGS: PluginSettings = {
       syncPath: '',
       isPaidUser: false,
       requestDelay: 'normal'
+    },
+    icloud: {
+      enabled: false,
+      appId: '',
+      password: '',
+      syncPath: ''
+    },
+    github: {
+      enabled: false,
+      username: '',
+      token: '',
+      repository: '',
+      branch: 'main',
+      syncPath: ''
     }
   },
   
