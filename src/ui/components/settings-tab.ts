@@ -1,9 +1,9 @@
 import { App, Notice, PluginSettingTab, Setting, ButtonComponent } from 'obsidian';
-import CloudSyncPlugin from '../../../main';
-import { PluginSettings, WebDAVSettings, RequestDelayLevel } from '../../models/plugin-settings';
-import { WebDAVProvider } from '../../services/storage/webdav-provider';
-import { ConnectionStatus } from '../../services/storage/storage-provider';
-import { ConflictPolicy, SyncDirection, SyncMode } from '../../models/plugin-settings';
+import CloudSyncPlugin from '@main';
+import { PluginSettings, WebDAVSettings, RequestDelayLevel } from '@models/plugin-settings';
+import { WebDAVProvider } from '@storage/webdav-provider';
+import { ConnectionStatus } from '@storage/storage-provider';
+import { ConflictPolicy, SyncDirection, SyncMode } from '@models/plugin-settings';
 
 // 添加CSS样式
 const JIANGUOYUN_SETTINGS_STYLES = `

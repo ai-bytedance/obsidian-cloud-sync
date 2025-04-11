@@ -1,4 +1,4 @@
-import { RequestRateLimiter } from './request-rate-limiter';
+import { RequestRateLimiter } from '@storage/request-rate-limiter';
 
 /**
  * 请求优先级定义

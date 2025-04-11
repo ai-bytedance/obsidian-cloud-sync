@@ -12,6 +12,16 @@
     "isolatedModules": true,
     "strictNullChecks": true,
     "allowSyntheticDefaultImports": true,
+    "paths": {
+      "@src/*": ["src/*"],
+      "@models/*": ["src/models/*"],
+      "@services/*": ["src/services/*"],
+      "@ui/*": ["src/ui/*"],
+      "@storage/*": ["src/services/storage/*"],
+      "@crypto/*": ["src/services/crypto/*"],
+      "@components/*": ["src/ui/components/*"],
+      "@main": ["main.ts"]
+    },
     "lib": [
       "DOM",
       "ES5",

@@ -1,4 +1,4 @@
-import { RequestDelayLevel } from '../../models/plugin-settings';
+import { RequestDelayLevel } from '@models/plugin-settings';
 
 /**
  * 请求速率限制器

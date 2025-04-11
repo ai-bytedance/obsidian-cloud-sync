@@ -13,13 +13,13 @@ import {
 	StorageProviderType,
 	SyncMode,
 	SyncDirection
-} from './src/models/plugin-settings';
-import { CloudSyncSettingTab } from './src/ui/components/settings-tab';
-import { WebDAVProvider } from './src/services/storage/webdav-provider';
-import { AESCryptoService } from './src/services/crypto/aes-crypto-service';
-import { ConnectionStatus, StorageProvider, FileInfo } from './src/services/storage/storage-provider';
-import { CryptoService } from './src/services/crypto/crypto-service';
-import { NotificationManager } from './src/services/notification/notification-manager';
+} from '@models/plugin-settings';
+import { CloudSyncSettingTab } from '@components/settings-tab';
+import { WebDAVProvider } from '@storage/webdav-provider';
+import { AESCryptoService } from '@crypto/aes-crypto-service';
+import { ConnectionStatus, StorageProvider, FileInfo } from '@storage/storage-provider';
+import { CryptoService } from '@crypto/crypto-service';
+import { NotificationManager } from '@services/notification/notification-manager';
 
 export default class CloudSyncPlugin extends Plugin {
 	settings: PluginSettings;

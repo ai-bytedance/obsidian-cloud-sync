@@ -5,9 +5,9 @@ import {
   FileInfo,
   FileMetadata,
   QuotaInfo
-} from './storage-provider';
+} from '@storage/storage-provider';
 import { App, RequestUrlParam, requestUrl } from 'obsidian';
-import { WebDAVSettings } from '../../models/plugin-settings';
+import { WebDAVSettings } from '@models/plugin-settings';
 
 /**
  * WebDAV存储提供商

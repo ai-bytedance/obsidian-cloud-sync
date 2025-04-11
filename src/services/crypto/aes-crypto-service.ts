@@ -1,4 +1,4 @@
-import { CryptoService, CryptoError } from './crypto-service';
+import { CryptoService, CryptoError } from '@crypto/crypto-service';
 import * as CryptoJS from 'crypto-js';
 
 /**
