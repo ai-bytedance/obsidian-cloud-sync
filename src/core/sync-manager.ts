@@ -10,6 +10,7 @@ import { LocalToRemoteSync } from '../core/sync-strategies/local-to-remote-sync'
 import { RemoteToLocalSync } from '../core/sync-strategies/remote-to-local-sync';
 import { SyncFileFilter } from '../utils/sync-file-filter';
 import { Notice } from 'obsidian';
+import { NetworkService, NetworkType } from '@services/network/network-service';
 
 /**
  * 同步管理器类
@@ -22,6 +23,7 @@ export class SyncManager {
   private syncLockAcquired: boolean = false; // 添加同步锁
   private syncLockTimeout: NodeJS.Timeout | null = null; // 添加超时计时器
   private readonly MAX_SYNC_DURATION = 5 * 60 * 1000; // 5分钟超时
+  private networkService: NetworkService;
   
   /**
    * 构造函数
@@ -34,6 +36,7 @@ export class SyncManager {
     private notificationManager: NotificationManager
   ) {
     this.bidirectionalSync = new BidirectionalSync(plugin);
+    this.networkService = NetworkService.getInstance();
   }
 
   /**
@@ -51,6 +54,38 @@ export class SyncManager {
           this.notificationManager.show('sync-warning', '有另一个同步操作正在进行，请稍后再试', 3000);
         }
         return false;
+      }
+      
+      // 检查网络状态（如果启用了网络检测）
+      if (this.plugin.settings.networkDetection) {
+        // 记录当前网络类型，用于调试
+        const networkType = this.networkService.getNetworkType();
+        const isPCPlatform = this.networkService.isPCPlatform ? this.networkService.isPCPlatform() : false;
+        
+        // 记录更详细的网络状态日志
+        console.log(`[网络检测] 当前平台: ${isPCPlatform ? 'PC' : '移动设备'}, 网络类型: ${networkType}`);
+        
+        // 使用NetworkService的shouldSync方法统一判断
+        if (!this.networkService.shouldSync(true)) {
+          const networkTypeName = networkType === NetworkType.CELLULAR ? '移动数据' : 
+                                 networkType === NetworkType.ETHERNET ? '以太网' : 
+                                 networkType === NetworkType.WIFI ? 'WiFi' : 
+                                 networkType === NetworkType.UNKNOWN ? '未知' : 
+                                 networkType === NetworkType.NONE ? '离线' : networkType;
+          
+          console.log(`[网络检测] 当前网络类型为${networkTypeName}，根据网络检测设置跳过同步`);
+          if (showNotice) {
+            this.notificationManager.show('sync-info', `当前非WiFi网络(${networkTypeName})，已跳过同步操作`, 3000);
+          }
+          return false;
+        } else {
+          const networkTypeName = networkType === NetworkType.CELLULAR ? '移动数据' : 
+                                 networkType === NetworkType.ETHERNET ? '以太网' : 
+                                 networkType === NetworkType.WIFI ? 'WiFi' : 
+                                 networkType === NetworkType.UNKNOWN ? '未知' : 
+                                 networkType === NetworkType.NONE ? '离线' : networkType;
+          console.log(`[网络检测] 网络检测已启用，当前为${networkTypeName}网络，允许同步`);
+        }
       }
       
       // 获取锁
@@ -308,8 +343,8 @@ export class SyncManager {
       // 记录此次同步时间
       this.lastSyncTime = Date.now();
       
-        if (showNotice) {
-        this.notificationManager.show('sync-success', '同步成功完成', 3000);
+      if (showNotice) {
+        this.notificationManager.show('sync-success', '同步完成', 3000);
       }
       
       return true;
@@ -668,10 +703,9 @@ export class SyncManager {
   }
 
   /**
-   * 检查是否需要同步并执行同步
+   * 检查是否需要同步，并根据需要执行同步操作
    * @param forceInitialize 是否强制初始化提供商
-   * @returns 是否执行了同步
-   * @author Bing
+   * @returns 是否成功执行了同步
    */
   async syncIfNeeded(forceInitialize: boolean = false): Promise<boolean> {
     console.log('检查是否需要同步...');
@@ -690,6 +724,19 @@ export class SyncManager {
     if (this.plugin.syncInProgress) {
       console.log('同步已在进行中，跳过');
       return false;
+    }
+    
+    // 检查网络状态（如果启用了网络检测）
+    if (this.plugin.settings.networkDetection) {
+      // 使用NetworkService的shouldSync方法统一判断
+      if (!this.networkService.shouldSync(true)) {
+        const networkType = this.networkService.getNetworkType();
+        console.log(`当前网络类型为${networkType}，根据网络检测设置跳过自动同步`);
+        return false;
+      } else {
+        const networkType = this.networkService.getNetworkType();
+        console.log(`网络检测已启用，当前为${networkType === NetworkType.WIFI ? 'WiFi' : '以太网'}网络，继续自动同步`);
+      }
     }
     
     const timeDiff = now - this.lastSyncTime;

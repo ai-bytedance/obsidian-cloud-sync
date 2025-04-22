@@ -2,6 +2,7 @@ import { SyncEngine } from '@src/core/sync-engine';
 import { PluginSettings } from '@models/plugin-settings';
 import { NotificationManager } from '@services/notification/notification-manager';
 import CloudSyncPlugin from '@main';
+import { NetworkService, NetworkType } from '@services/network/network-service';
 
 /**
  * 自动同步管理器
@@ -13,6 +14,8 @@ export class AutoSyncManager {
   private lastSyncTime: number = 0;
   // 添加状态跟踪变量
   private isRunning: boolean = false;
+  private networkService: NetworkService;
+  private networkListener: ((isOnline: boolean, type: NetworkType) => void) | null = null;
 
   /**
    * 构造函数
@@ -25,7 +28,45 @@ export class AutoSyncManager {
     private plugin: CloudSyncPlugin,
     private syncEngine: SyncEngine,
     private notificationManager: NotificationManager
-  ) {}
+  ) {
+    this.networkService = NetworkService.getInstance();
+    
+    // 添加网络状态变化监听，适应网络检测功能
+    this.setupNetworkListener();
+  }
+  
+  /**
+   * 设置网络状态变化监听器
+   * @private
+   */
+  private setupNetworkListener(): void {
+    // 先移除旧的监听器（如果存在）
+    if (this.networkListener) {
+      this.networkService.removeNetworkStatusListener(this.networkListener);
+      this.networkListener = null;
+    }
+    
+    // 创建并添加新的监听器
+    this.networkListener = (isOnline: boolean, type: NetworkType) => {
+      if (this.plugin.settings.networkDetection && this.isRunning) {
+        // 当网络从非WiFi变为WiFi时，或在PC平台从非良好连接变为以太网时，触发同步
+        if (isOnline && (type === NetworkType.WIFI || type === NetworkType.ETHERNET)) {
+          console.log(`网络状态变为${type === NetworkType.WIFI ? 'WiFi' : '以太网'}，尝试执行延迟同步`);
+          // 延迟30秒后执行同步，避免网络切换瞬间的不稳定
+          setTimeout(() => {
+            // 再次检查状态，确保仍处于自动同步中且仍是良好连接
+            if (this.isRunning && 
+                this.plugin.settings.networkDetection &&
+                (this.networkService.isWifiConnection() || this.networkService.isEthernetConnection())) {
+              this.executeAutoSync();
+            }
+          }, 30000);
+        }
+      }
+    };
+    
+    this.networkService.addNetworkStatusListener(this.networkListener);
+  }
 
   /**
    * 启动自动同步
@@ -81,6 +122,12 @@ export class AutoSyncManager {
     this.intervalId = null;
     this.isRunning = false;
     
+    // 清理网络监听器
+    if (this.networkListener) {
+      this.networkService.removeNetworkStatusListener(this.networkListener);
+      this.networkListener = null;
+    }
+    
     // 仅在需要时显示日志和通知
     if (showNotification) {
       console.log('自动同步已停止');
@@ -109,6 +156,18 @@ export class AutoSyncManager {
       if (this.plugin.syncInProgress) {
         console.log('有同步操作正在进行，跳过自动同步');
         return;
+      }
+      
+      // 检查网络状态（如果启用了网络检测）
+      if (this.plugin.settings.networkDetection) {
+        // 使用NetworkService的shouldSync方法来统一判断是否应该同步
+        if (!this.networkService.shouldSync(true)) {
+          const networkType = this.networkService.getNetworkType();
+          console.log(`当前网络类型为${networkType}，根据网络检测设置跳过自动同步`);
+          return;
+        } else {
+          console.log('网络检测已启用，当前为允许同步的网络类型，继续自动同步');
+        }
       }
       
       const now = Date.now();
@@ -148,6 +207,9 @@ export class AutoSyncManager {
     } else if (!shouldBeRunning && this.isRunning) {
       this.stopAutoSync();
     }
+    
+    // 不管是否改变状态，都更新网络监听器，以适应可能的网络检测设置变化
+    this.setupNetworkListener();
   }
   
   /**

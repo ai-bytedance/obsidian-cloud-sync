@@ -255,9 +255,8 @@ export function createGeneralSection(
           try {
             await plugin.manualSync();
             
-            // 显示成功通知
+            // 移除同步完成通知，该通知已在SyncManager中处理
             plugin.notificationManager.clear('sync-start');
-            plugin.notificationManager.show('sync-complete', '同步完成', 4000);
           } catch (syncError) {
             console.error('同步执行失败:', syncError);
             
