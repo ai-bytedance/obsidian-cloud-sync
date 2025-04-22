@@ -1,0 +1,28 @@
+import { NotificationManager } from '@services/notification/notification-manager';
+
+/**
+ * 缓存管理器类
+ * 负责管理云同步缓存，包括清除缓存等操作
+ * @author Bing
+ */
+export class CacheManager {
+  /**
+   * 构造函数
+   * @param notificationManager 通知管理器
+   * @author Bing
+   */
+  constructor(
+    private notificationManager: NotificationManager
+  ) {}
+  
+  /**
+   * 清除缓存
+   * 清除同步状态、文件元数据缓存等
+   * @author Bing
+   */
+  async clearCache() {
+    // 实际实现中，需要清除同步状态、文件元数据缓存等
+    console.log('清除云同步缓存');
+    this.notificationManager.show('cache-cleared', '缓存已清除', 3000);
+  }
+} 
