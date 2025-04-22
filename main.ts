@@ -21,6 +21,7 @@ import { SyncManager } from '@src/core/sync-manager';
 import { SettingsManager } from '@src/core/settings-manager';
 import { LifecycleService } from '@services/lifecycle-service';
 import { PluginService } from '@services/plugin-service';
+import { LogService } from '@services/log/log-service';
 
 /**
  * Obsidian云同步插件主类
@@ -47,6 +48,7 @@ export default class CloudSyncPlugin extends Plugin {
 	// 服务类
 	private lifecycleService: LifecycleService;
 	pluginService: PluginService;
+	logService: LogService;
 	
 	// 同步超时保护
 	private syncTimeoutId: NodeJS.Timeout | null = null;
@@ -99,15 +101,18 @@ export default class CloudSyncPlugin extends Plugin {
 		// 如果已有同步正在进行，直接返回
 		if (this.syncInProgress) {
 			console.warn('已有同步操作正在进行，跳过此次调用');
+			this.logService?.warning('已有同步操作正在进行，跳过此次调用');
 			return false;
 		}
 		
 		try {
 			this.syncInProgress = true;
+			this.logService?.info('开始手动同步');
 			
 			// 设置同步超时保护
 			this.syncTimeoutId = setTimeout(() => {
 				console.warn('同步操作超时，强制终止');
+				this.logService?.warning('同步操作超时，强制终止');
 				this.syncInProgress = false;
 				this.notificationManager.show('sync-timeout', '同步操作超时，已自动中断', 5000);
 			}, this.MAX_SYNC_DURATION);
@@ -120,6 +125,7 @@ export default class CloudSyncPlugin extends Plugin {
 				this.syncTimeoutId = null;
 			}
 			this.syncInProgress = false;
+			this.logService?.info('手动同步完成');
 		}
 	}
 	
@@ -127,7 +133,9 @@ export default class CloudSyncPlugin extends Plugin {
 	 * 清除缓存（公共API，供外部使用）
 	 */
 	async clearCache() {
+		this.logService?.info('开始清除缓存');
 		await this.cacheManager.clearCache();
+		this.logService?.info('缓存清除完成');
 	}
 	
 	/**

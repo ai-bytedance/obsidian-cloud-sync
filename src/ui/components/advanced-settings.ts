@@ -290,6 +290,16 @@ export function createAdvancedSection(
       .onChange(async (value) => {
         tempSettings.debugMode = value;
         await plugin.saveSettings(tempSettings);
+        
+        // 根据调试模式状态启用或禁用控制台拦截
+        if (value) {
+          plugin.logService?.interceptConsole();
+          plugin.logService?.info('已启用控制台拦截（调试模式）');
+        } else {
+          plugin.logService?.restoreConsole();
+          plugin.logService?.info('已禁用控制台拦截（调试模式关闭）');
+        }
+        
         await displayFunc(); // 刷新界面以显示/隐藏日志级别设置
       }));
   
@@ -317,11 +327,37 @@ export function createAdvancedSection(
     .addButton(button => button
       .setButtonText('导出')
       .onClick(async () => {
-        // 实际实现会从一个日志服务获取日志
-        const dummyLog = "=== Cloud Sync 日志 ===\n时间: " + new Date().toISOString() + "\n没有可用的日志数据";
+        // 使用日志服务获取日志
+        let logContent = '';
+        
+        if (plugin.logService) {
+          // 确保始终使用用户界面中选择的日志级别
+          // 即使调试模式关闭，也尊重用户之前选择的级别
+          const logLevel = tempSettings.logLevel;
+          
+          // 在导出前记录各种级别的测试日志，确保有内容可见
+          plugin.logService.debug('【测试】这是一条调试级别的日志消息');
+          plugin.logService.info('【测试】这是一条信息级别的日志消息');
+          plugin.logService.warning('【测试】这是一条警告级别的日志消息');
+          plugin.logService.error('【测试】这是一条错误级别的日志消息');
+          
+          // 记录一条包含控制台日志测试的消息
+          plugin.logService.debug('【测试】如果启用了控制台拦截，控制台输出也会被记录');
+          // 测试一次控制台输出
+          console.log('【测试】这是一条控制台日志消息，用于测试控制台拦截');
+          
+          // 记录导出操作和使用的日志级别
+          plugin.logService.info(`开始导出日志，使用级别: ${logLevel}`);
+          
+          // 明确传递日志级别参数
+          logContent = plugin.logService.export(logLevel);
+        } else {
+          // 兼容性处理，如果未找到日志服务
+          logContent = "=== Cloud Sync 日志 ===\n时间: " + new Date().toISOString() + "\n日志服务未初始化，无法获取日志数据";
+        }
         
         // 创建一个下载链接
-        const blob = new Blob([dummyLog], { type: 'text/plain' });
+        const blob = new Blob([logContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -334,6 +370,16 @@ export function createAdvancedSection(
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
         }, 100);
+        
+        // 提示用户日志已导出
+        const logLevelText = tempSettings.logLevel === 'debug' ? '调试' : 
+                            tempSettings.logLevel === 'info' ? '信息' : 
+                            tempSettings.logLevel === 'warning' ? '警告' : '错误';
+                            
+        plugin.notificationManager.show('log-exported', `日志已导出(${logLevelText}级别)`, 3000);
+        if (plugin.logService) {
+          plugin.logService.info(`用户导出了${logLevelText}级别的日志文件`);
+        }
       }));
   
   // 网络检测

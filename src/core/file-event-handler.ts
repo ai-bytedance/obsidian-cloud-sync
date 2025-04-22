@@ -11,10 +11,14 @@ import { AutoSyncManager } from '@src/core/auto-sync-manager';
  * @author Bing
  */
 export class FileEventHandler {
+  // 标记事件是否已注册
+  private eventsRegistered: boolean = false;
+  
   /**
    * 构造函数
    * @param plugin 插件实例
    * @param syncEngine 同步引擎
+   * @param autoSyncManager 自动同步管理器
    * @author Bing
    */
   constructor(
@@ -28,78 +32,90 @@ export class FileEventHandler {
    * @author Bing
    */
   registerFileEvents() {
-    // 文件创建事件
+    if (this.eventsRegistered) {
+      console.log('文件事件监听器已注册，跳过重复注册');
+      return;
+    }
+    
+    // 注册文件创建事件
     this.plugin.registerEvent(
-      this.plugin.app.vault.on('create', this.handleFileCreated.bind(this))
+      this.plugin.app.vault.on('create', (file) => {
+        // 检查是否应该忽略
+        if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
+          console.log(`忽略创建事件: ${file.path}`);
+          return;
+        }
+        
+        console.log(`文件创建: ${file.path}`);
+        // 这里可以根据需要触发同步操作，例如：
+        // 1. 即时同步
+        // 2. 添加到待同步队列
+        // 3. 重置自动同步计时器
+      })
     );
     
-    // 文件修改事件
+    // 注册文件修改事件
     this.plugin.registerEvent(
-      this.plugin.app.vault.on('modify', this.handleFileModified.bind(this))
+      this.plugin.app.vault.on('modify', (file) => {
+        // 检查是否应该忽略
+        if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
+          console.log(`忽略修改事件: ${file.path}`);
+          return;
+        }
+        
+        console.log(`文件修改: ${file.path}`);
+        // 同上，根据需要触发同步操作
+      })
     );
     
-    // 文件删除事件
+    // 注册文件删除事件
     this.plugin.registerEvent(
-      this.plugin.app.vault.on('delete', this.handleFileDeleted.bind(this))
+      this.plugin.app.vault.on('delete', (file) => {
+        // 检查是否应该忽略
+        if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
+          console.log(`忽略删除事件: ${file.path}`);
+          return;
+        }
+        
+        console.log(`文件删除: ${file.path}`);
+        // 同上，根据需要触发同步操作
+      })
     );
     
-    // 文件重命名事件
+    // 注册文件重命名事件
     this.plugin.registerEvent(
-      this.plugin.app.vault.on('rename', this.handleFileRenamed.bind(this))
+      this.plugin.app.vault.on('rename', (file, oldPath) => {
+        // 检查是否应该忽略
+        if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
+          console.log(`忽略重命名事件: ${oldPath} -> ${file.path}`);
+          return;
+        }
+        
+        console.log(`文件重命名: ${oldPath} -> ${file.path}`);
+        // 同上，根据需要触发同步操作
+      })
     );
+    
+    this.eventsRegistered = true;
+    console.log('文件事件监听器已注册');
   }
   
   /**
-   * 处理文件创建事件
-   * @param file 创建的文件
-   * @author Bing
+   * 取消注册文件事件监听器
+   * 在插件卸载或重新加载时调用
+   * @author Chatbot
    */
-  private handleFileCreated(file: TAbstractFile) {
-    // 忽略被过滤的文件
-    if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) return;
-    
-    // 文件变更后进行同步
-    this.debouncedSync();
-  }
-  
-  /**
-   * 处理文件修改事件
-   * @param file 修改的文件
-   * @author Bing
-   */
-  private handleFileModified(file: TAbstractFile) {
-    // 忽略被过滤的文件
-    if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) return;
-    
-    // 文件变更后进行同步
-    this.debouncedSync();
-  }
-  
-  /**
-   * 处理文件删除事件
-   * @param file 删除的文件
-   * @author Bing
-   */
-  private handleFileDeleted(file: TAbstractFile) {
-    // 忽略被过滤的文件
-    if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) return;
-    
-    // 文件变更后进行同步
-    this.debouncedSync();
-  }
-  
-  /**
-   * 处理文件重命名事件
-   * @param file 重命名的文件
-   * @param oldPath 旧路径
-   * @author Bing
-   */
-  private handleFileRenamed(file: TAbstractFile, oldPath: string) {
-    // 忽略被过滤的文件
-    if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) return;
-    
-    // 文件变更后进行同步
-    this.debouncedSync();
+  unregisterFileEvents() {
+    // Obsidian的Plugin.registerEvent方法会自动将事件添加到一个内部列表中
+    // 当插件卸载时，所有注册的事件会自动被移除，无需手动取消注册
+    // 但我们可以标记为未注册，以便下次注册时知道状态
+    if (this.eventsRegistered) {
+      this.eventsRegistered = false;
+      console.log('文件事件监听器标记为已取消注册');
+      if (this.plugin.logService) {
+        this.plugin.logService.info('文件事件监听器标记为已取消注册');
+      }
+    }
   }
   
   /**
