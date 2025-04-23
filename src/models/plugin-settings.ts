@@ -35,6 +35,12 @@ export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
 export type RequestDelayLevel = 'normal' | 'slow' | 'very-slow';
 
 /**
+ * 过滤模式
+ * @author Bing
+ */
+export type FilterMode = 'simple' | 'wildcard' | 'regex';
+
+/**
  * WebDAV设置
  * @author Bing
  */

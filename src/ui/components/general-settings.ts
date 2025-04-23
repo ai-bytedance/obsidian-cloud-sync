@@ -1,6 +1,7 @@
 import { Setting } from 'obsidian';
-import { PluginSettings } from '@models/plugin-settings';
+import { PluginSettings, FilterMode } from '@models/plugin-settings';
 import CloudSyncPlugin from '@main';
+import { SyncFileFilter } from '@src/utils/sync-file-filter';
 
 /**
  * 创建通用设置部分
@@ -311,59 +312,65 @@ export function createGeneralSection(
       }));
   
   // 忽略文件夹设置
-  new Setting(generalSection)
+  const ignoreFolderSection = new Setting(generalSection)
     .setName('忽略文件夹')
-    .setDesc('忽略指定文件夹 (用逗号分隔，支持通配符如 *.git)')
-    .addTextArea(text => {
-      const textArea = text.setValue(tempSettings.ignoreFolders.join(', '))
-        .setPlaceholder('例如: .git, .obsidian, node_modules')
-        .onChange(async (value) => {
-          tempSettings.ignoreFolders = value.split(',').map(item => item.trim()).filter(item => !!item);
-          await plugin.saveSettings(tempSettings);
-        });
-      
-      // 设置文本区域宽度
-      textArea.inputEl.style.width = '300px';
-      textArea.inputEl.style.height = '60px';
-      
-      return textArea;
-    });
+    .setDesc('忽略指定文件夹 (用逗号分隔，支持通配符*/?和正则表达式)');
+
+  // 添加文本区域
+  ignoreFolderSection.addTextArea(text => {
+    const textArea = text.setValue(tempSettings.ignoreFolders.join(', '))
+      .setPlaceholder('例如: .git, .obsidian, node_*, \\.obsidian/.*')
+      .onChange(async (value) => {
+        tempSettings.ignoreFolders = value.split(',').map(item => item.trim()).filter(item => !!item);
+        await plugin.saveSettings(tempSettings);
+      });
+    
+    // 设置文本区域样式
+    textArea.inputEl.style.width = '300px';
+    textArea.inputEl.style.height = '60px';
+    
+    return textArea;
+  });
   
   // 忽略文件设置
-  new Setting(generalSection)
+  const ignoreFileSection = new Setting(generalSection)
     .setName('忽略文件')
-    .setDesc('忽略指定文件 (用逗号分隔，支持通配符如 *.tmp)')
-    .addTextArea(text => {
-      const textArea = text.setValue(tempSettings.ignoreFiles.join(', '))
-        .setPlaceholder('例如: .DS_Store, desktop.ini')
-        .onChange(async (value) => {
-          tempSettings.ignoreFiles = value.split(',').map(item => item.trim()).filter(item => !!item);
-          await plugin.saveSettings(tempSettings);
-        });
-      
-      // 设置文本区域宽度
-      textArea.inputEl.style.width = '300px';
-      textArea.inputEl.style.height = '60px';
-      
-      return textArea;
-    });
+    .setDesc('忽略指定文件 (用逗号分隔，支持通配符*/?和正则表达式)');
+  
+  // 添加文本区域
+  ignoreFileSection.addTextArea(text => {
+    const textArea = text.setValue(tempSettings.ignoreFiles.join(', '))
+      .setPlaceholder('例如: .DS_Store, desktop.ini, *.tmp, thumb.*\\.db')
+      .onChange(async (value) => {
+        tempSettings.ignoreFiles = value.split(',').map(item => item.trim()).filter(item => !!item);
+        await plugin.saveSettings(tempSettings);
+      });
+    
+    // 设置文本区域样式
+    textArea.inputEl.style.width = '300px';
+    textArea.inputEl.style.height = '60px';
+    
+    return textArea;
+  });
   
   // 忽略扩展名设置
-  new Setting(generalSection)
+  const ignoreExtensionSection = new Setting(generalSection)
     .setName('忽略扩展名')
-    .setDesc('忽略指定扩展名 (用逗号分隔，不需要加点)')
-    .addTextArea(text => {
-      const textArea = text.setValue(tempSettings.ignoreExtensions.join(', '))
-        .setPlaceholder('例如: tmp, bak, swp')
-        .onChange(async (value) => {
-          tempSettings.ignoreExtensions = value.split(',').map(item => item.trim()).filter(item => !!item);
-          await plugin.saveSettings(tempSettings);
-        });
-      
-      // 设置文本区域宽度
-      textArea.inputEl.style.width = '300px';
-      textArea.inputEl.style.height = '60px';
-      
-      return textArea;
-    });
+    .setDesc('忽略指定扩展名 (用逗号分隔，不需要加点，支持通配符*/?和正则表达式)');
+  
+  // 添加文本区域
+  ignoreExtensionSection.addTextArea(text => {
+    const textArea = text.setValue(tempSettings.ignoreExtensions.join(', '))
+      .setPlaceholder('例如: tmp, bak, t?p, sw.$')
+      .onChange(async (value) => {
+        tempSettings.ignoreExtensions = value.split(',').map(item => item.trim()).filter(item => !!item);
+        await plugin.saveSettings(tempSettings);
+      });
+    
+    // 设置文本区域样式
+    textArea.inputEl.style.width = '300px';
+    textArea.inputEl.style.height = '60px';
+    
+    return textArea;
+  });
 } 

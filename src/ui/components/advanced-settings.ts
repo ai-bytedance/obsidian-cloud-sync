@@ -257,8 +257,8 @@ export function createAdvancedSection(
   
   // 删除远程多余文件
   new Setting(syncSection)
-    .setName('删除远程多余文件')
-    .setDesc('删除远程服务器上存在但本地不存在的文件和文件夹。启用此选项会删除Obsidian中删除的文件和文件夹。')
+    .setName('删除远程多余文件夹及文件')
+    .setDesc('启用此选项请谨慎，可能会删除未同步的远程文件和文件夹。')
     .addToggle(toggle => toggle
       .setValue(tempSettings.deleteRemoteExtraFiles)
       .onChange(async (value) => {
@@ -268,8 +268,8 @@ export function createAdvancedSection(
 
   // 删除本地多余文件
   new Setting(syncSection)
-    .setName('删除本地多余文件')
-    .setDesc('删除本地存在但远程服务器上不存在的文件和文件夹。启用此选项请谨慎，可能会删除未同步的本地文件。')
+    .setName('删除本地多余文件夹及文件')
+    .setDesc('启用此选项请谨慎，可能会删除未同步的本地文件和文件夹。')
     .addToggle(toggle => toggle
       .setValue(tempSettings.deleteLocalExtraFiles)
       .onChange(async (value) => {
