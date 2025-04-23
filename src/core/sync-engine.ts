@@ -56,6 +56,9 @@ export class SyncEngine {
           this.notificationManager.show('sync-provider', `正在同步: ${provider.getName()}`, 30000);
         }
         
+        // 添加更详细的日志，显示当前同步设置
+        console.log(`当前同步设置: 同步模式=${this.plugin.settings.syncMode}, 同步方向=${this.plugin.settings.syncDirection}`);
+        
         // 检查连接状态
         if (provider.getStatus() !== ConnectionStatus.CONNECTED) {
           console.log(`提供商 ${providerType} 未连接，尝试连接...`);
@@ -178,14 +181,20 @@ export class SyncEngine {
           }));
           
           // 根据同步方向决定同步操作
-          if (this.plugin.settings.syncDirection === 'uploadOnly') {
+          const syncDirection = this.plugin.settings.syncDirection;
+          console.log(`执行同步操作，当前同步方向: ${syncDirection}`);
+          
+          if (syncDirection === 'uploadOnly') {
             // 仅上传模式
+            console.log(`使用本地到远程同步策略 (仅上传模式)`);
             await this.localToRemoteSync.sync(provider, typedLocalFiles, remoteFiles, providerType);
-          } else if (this.plugin.settings.syncDirection === 'downloadOnly') {
+          } else if (syncDirection === 'downloadOnly') {
             // 仅下载模式
+            console.log(`使用远程到本地同步策略 (仅下载模式)`);
             await this.remoteToLocalSync.sync(provider, typedLocalFiles, remoteFiles, providerType);
           } else {
             // 双向同步
+            console.log(`使用双向同步策略 (双向模式)`);
             await this.bidirectionalSync.sync(provider, typedLocalFiles, remoteFiles, providerType);
           }
           

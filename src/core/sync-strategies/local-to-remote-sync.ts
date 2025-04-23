@@ -34,6 +34,11 @@ export class LocalToRemoteSync extends SyncStrategyBase {
     remoteFiles: FileInfo[],
     providerType: StorageProviderType
   ): Promise<void> {
+    console.log('===========================================');
+    console.log('【LocalToRemoteSync】执行仅上传同步...');
+    console.log(`提供商类型: ${providerType}, 同步模式: ${this.plugin.settings.syncMode}`);
+    console.log('===========================================');
+    
     if (this.plugin.settings.syncMode === 'incremental') {
       await this.syncIncremental(provider, localFiles, remoteFiles, providerType);
     } else {

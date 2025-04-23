@@ -68,6 +68,11 @@ export class BidirectionalSync extends SyncStrategyBase {
     remoteFiles: FileInfo[],
     providerType: StorageProviderType
   ): Promise<void> {
+    console.log('===========================================');
+    console.log('【BidirectionalSync】执行双向同步...');
+    console.log(`提供商类型: ${providerType}, 同步模式: ${this.plugin.settings.syncMode}`);
+    console.log('===========================================');
+
     if (this.plugin.settings.syncMode === 'incremental') {
       await this.syncIncremental(provider, localFiles, remoteFiles, providerType);
     } else {

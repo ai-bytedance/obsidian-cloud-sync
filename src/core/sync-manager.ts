@@ -2,15 +2,13 @@ import { App } from 'obsidian';
 import { StorageProvider, FileInfo, ConnectionStatus } from '@providers/common/storage-provider';
 import { NotificationManager } from '@services/notification/notification-manager';
 import { PluginSettings, StorageProviderType } from '@models/plugin-settings';
-import { BidirectionalSync } from '../core/sync-strategies/bidirectional-sync';
 import { SyncStrategyBase, LocalFileInfo } from '../core/sync-strategies/sync-strategy-base';
 import CloudSyncPlugin from '@main';
 import { SyncPathUtils } from '../utils/sync-path-utils';
-import { LocalToRemoteSync } from '../core/sync-strategies/local-to-remote-sync';
-import { RemoteToLocalSync } from '../core/sync-strategies/remote-to-local-sync';
 import { SyncFileFilter } from '../utils/sync-file-filter';
 import { Notice } from 'obsidian';
 import { NetworkService, NetworkType } from '@services/network/network-service';
+import { SyncEngine } from '../core/sync-engine';
 
 /**
  * 同步管理器类
@@ -18,7 +16,6 @@ import { NetworkService, NetworkType } from '@services/network/network-service';
  * @author Bing
  */
 export class SyncManager {
-  private bidirectionalSync: BidirectionalSync;
   private lastSyncTime: number = 0; // 跟踪上次同步时间
   private syncLockAcquired: boolean = false; // 添加同步锁
   private syncLockTimeout: NodeJS.Timeout | null = null; // 添加超时计时器
@@ -35,7 +32,6 @@ export class SyncManager {
     private plugin: CloudSyncPlugin,
     private notificationManager: NotificationManager
   ) {
-    this.bidirectionalSync = new BidirectionalSync(plugin);
     this.networkService = NetworkService.getInstance();
   }
 
@@ -327,17 +323,17 @@ export class SyncManager {
           const remoteFiles = await provider.listFiles(remotePath);
           console.log(`获取到 ${remoteFiles.length} 个远程文件/文件夹`);
 
-          // 执行双向同步
-              await this.bidirectionalSync.sync(
-                provider, 
-                localFiles as LocalFileInfo[], 
-                remoteFiles,
-                providerType
-              );
-            }
-          } catch (error) {
+          // 检查当前设置的同步方向
+          const syncDirection = this.plugin.settings.syncDirection;
+          console.log(`当前SyncManager中配置的同步方向: ${syncDirection}`);
+          
+          // 创建SyncEngine实例来处理同步，确保按配置的方向执行
+          const syncEngine = new SyncEngine(this.plugin, this.notificationManager);
+          await syncEngine.performSync(false); // false表示这是手动同步，非自动同步
+        }
+      } catch (error) {
         console.error('同步执行中出错:', error);
-            throw error;
+        throw error;
       }
       
       // 记录此次同步时间
