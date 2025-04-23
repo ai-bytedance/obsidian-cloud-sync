@@ -118,7 +118,6 @@ export class BidirectionalSync extends SyncStrategyBase {
     const basePathExists = await this.ensureRemoteBasePath(provider, providerType);
     if (!basePathExists) {
       console.warn('无法确保远程基础路径存在，同步操作可能不完整');
-      // 继续执行，但已发出警告
     }
     
     // 创建映射以加速查找
@@ -188,7 +187,51 @@ export class BidirectionalSync extends SyncStrategyBase {
     const localFolders = localFiles.filter(file => file.isFolder);
     if (localFolders.length > 0) {
       console.log(`找到 ${localFolders.length} 个本地文件夹需要同步到远程`);
-      await this.syncLocalFoldersToRemote(provider, localFiles, providerType, basePath, localFolders);
+      
+      // 创建一个集合来跟踪应该删除的本地文件夹
+      const localFoldersToDelete = new Set<string>();
+      
+      // 如果启用了删除本地多余文件，标记多余的本地文件夹
+      if (this.plugin.settings.deleteLocalExtraFiles) {
+        console.log('预处理：标记需要删除的本地多余文件夹...');
+        
+        // 统计所有远程文件夹路径
+        const remotePathSet = new Set<string>();
+        for (const remoteFile of remoteFiles) {
+          if (remoteFile.isFolder) {
+            // 使用新的路径映射方法处理远程路径
+            let localPath = SyncPathUtils.mapRemotePathToLocal(remoteFile.path, basePath);
+            // 如果是空路径（基础路径本身），跳过添加到集合
+            if (localPath === '') {
+              console.log(`远程路径是基础路径本身，跳过添加到remotePathSet: ${remoteFile.path}`);
+              continue; // 跳过此文件夹
+            } else {
+              console.log(`远程文件夹路径映射到本地路径: ${remoteFile.path} -> ${localPath}`);
+              remotePathSet.add(localPath);
+            }
+          }
+        }
+        
+        // 标记本地多余文件夹
+        for (const folder of localFolders) {
+          if (!remotePathSet.has(folder.path) && !this.isSystemOrUnrelatedFolder(folder.path)) {
+            localFoldersToDelete.add(folder.path);
+            console.log(`标记本地多余文件夹: ${folder.path}`);
+          }
+        }
+        
+        // 输出调试信息
+        console.log(`找到 ${localFoldersToDelete.size} 个需要删除的本地多余文件夹`);
+        if (localFoldersToDelete.size > 0) {
+          console.log('需要删除的本地多余文件夹列表:');
+          for (const path of localFoldersToDelete) {
+            console.log(`- ${path}`);
+          }
+        }
+      }
+      
+      // 传递localFoldersToDelete参数给syncLocalFoldersToRemote方法
+      await this.syncLocalFoldersToRemote(provider, localFiles, providerType, basePath, localFolders, localFoldersToDelete);
     } else {
       console.log('没有找到本地文件夹，跳过文件夹同步');
     }
@@ -281,6 +324,68 @@ export class BidirectionalSync extends SyncStrategyBase {
     
     const remoteFolders = new Set<string>();
     
+    // 添加一个集合来跟踪应该删除的本地文件
+    // 注意: 这个集合仅用于在上传前跳过已标记为多余的文件，实际删除操作在handleDeletions方法中执行
+    // 这样可以避免将即将被删除的多余文件先上传到远程，然后再删除本地文件的问题
+    const localFilesToDelete = new Set<string>();
+    
+    // 添加一个集合来跟踪应该删除的本地文件夹
+    // 这样可以避免将多余的文件夹同步到远程
+    const localFoldersToDelete = new Set<string>();
+    
+    // 如果启用了删除本地多余文件，先标记哪些本地文件是多余的
+    if (this.plugin.settings.deleteLocalExtraFiles) {
+      console.log('预处理：标记需要删除的本地多余文件和文件夹...');
+      
+      // 统计所有远程文件路径
+      const remotePathSet = new Set<string>();
+      for (const [remotePath, file] of remoteFilesMap.entries()) {
+        // 使用新的路径映射方法处理远程路径
+        let localPath = SyncPathUtils.mapRemotePathToLocal(file.path, basePath);
+        // 如果是空路径（基础路径本身），跳过添加到集合
+        if (localPath === '') {
+          console.log(`远程路径是基础路径本身，跳过添加到remotePathSet: ${file.path}`);
+          continue; // 跳过此文件
+        } else {
+          console.log(`远程路径映射到本地路径: ${file.path} -> ${localPath}`);
+          remotePathSet.add(localPath);
+        }
+      }
+      
+      // 标记本地多余文件
+      for (const [localPath, localFile] of localFilesMap.entries()) {
+        if (!localFile.isFolder && !remotePathSet.has(localFile.path)) {
+          localFilesToDelete.add(localFile.path);
+          console.log(`标记本地多余文件: ${localFile.path}`);
+        }
+      }
+      
+      // 标记本地多余文件夹
+      for (const [localPath, localFile] of localFilesMap.entries()) {
+        if (localFile.isFolder && !remotePathSet.has(localFile.path)) {
+          localFoldersToDelete.add(localFile.path);
+          console.log(`标记本地多余文件夹: ${localFile.path}`);
+        }
+      }
+      
+      // 输出调试信息
+      console.log(`找到 ${localFilesToDelete.size} 个需要删除的本地多余文件`);
+      if (localFilesToDelete.size > 0) {
+        console.log('需要删除的本地多余文件列表:');
+        for (const path of localFilesToDelete) {
+          console.log(`- ${path}`);
+        }
+      }
+      
+      console.log(`找到 ${localFoldersToDelete.size} 个需要删除的本地多余文件夹`);
+      if (localFoldersToDelete.size > 0) {
+        console.log('需要删除的本地多余文件夹列表:');
+        for (const path of localFoldersToDelete) {
+          console.log(`- ${path}`);
+        }
+      }
+    }
+    
     // 处理远程文件夹，确保本地也存在
     for (const file of remoteFiles) {
       if (file.isFolder) {
@@ -360,6 +465,13 @@ export class BidirectionalSync extends SyncStrategyBase {
     
     // 处理每个本地文件
     for (const localFile of localFiles.filter(f => !f.isFolder)) {
+      // 如果文件被标记为需要删除，跳过上传
+      // 这避免了将即将被删除的多余文件上传到远程，提高了同步效率并防止无用操作
+      if (localFilesToDelete.has(localFile.path)) {
+        console.log(`跳过上传已标记为需删除的本地文件: ${localFile.path}`);
+        continue;
+      }
+      
       // 构建远程路径，确保路径格式正确
       let remotePath;
       if (basePath) {
@@ -673,6 +785,9 @@ export class BidirectionalSync extends SyncStrategyBase {
     if (this.plugin.settings.deleteLocalExtraFiles) {
       console.log('检查并删除本地多余文件和文件夹...');
       
+      // 注意: 尽管在syncBidirectional方法中已经预先标记了一些本地多余文件以跳过上传，
+      // 这里仍需要再次计算以确保全面识别所有需要删除的文件，并执行实际的删除操作
+      
       // 统计所有远程文件路径
       const remotePathSet = new Set<string>();
       for (const [remotePath, file] of remoteFilesMap.entries()) {
@@ -742,6 +857,7 @@ export class BidirectionalSync extends SyncStrategyBase {
    * @param providerType 提供商类型
    * @param basePath 远程基础路径
    * @param foldersList 可选，已预先提取的文件夹列表
+   * @param localFoldersToDelete 可选，已标记为将被删除的文件夹集合
    * @author Bing
    */
   private async syncLocalFoldersToRemote(
@@ -749,7 +865,8 @@ export class BidirectionalSync extends SyncStrategyBase {
     localFiles: LocalFileInfo[],
     providerType: StorageProviderType,
     basePath: string,
-    foldersList?: LocalFileInfo[]
+    foldersList?: LocalFileInfo[],
+    localFoldersToDelete?: Set<string>
   ): Promise<void> {
     // 使用提供的文件夹列表或从本地文件中提取
     const allFolders = foldersList || localFiles.filter(item => item.isFolder);
@@ -760,7 +877,20 @@ export class BidirectionalSync extends SyncStrategyBase {
     }
     
     // 过滤掉不需要同步的文件夹
-    const folders = allFolders.filter(folder => !this.isSystemOrUnrelatedFolder(folder.path));
+    const folders = allFolders.filter(folder => {
+      // 过滤系统文件夹
+      if (this.isSystemOrUnrelatedFolder(folder.path)) {
+        return false;
+      }
+      
+      // 如果提供了待删除文件夹集合，过滤掉那些标记为将被删除的文件夹
+      if (localFoldersToDelete && localFoldersToDelete.has(folder.path)) {
+        console.log(`跳过标记为将被删除的文件夹: ${folder.path}`);
+        return false;
+      }
+      
+      return true;
+    });
     
     if (folders.length === 0) {
       console.log('过滤后没有需要同步的本地文件夹，跳过文件夹同步');
@@ -907,7 +1037,7 @@ export class BidirectionalSync extends SyncStrategyBase {
                 const content = '';
                 await provider.uploadFile(dummyFilePath, content);
                 console.log(`通过创建空文件的方式创建了文件夹: ${remotePath}`);
-                successCount++; // 我们认为文件夹创建成功
+                successCount++; // 认为文件夹创建成功
                 errorCount--; // 取消之前的错误计数
                 createdFolders.add(remotePath);
                 
