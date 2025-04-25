@@ -1,12 +1,12 @@
 import { NotificationManager } from '@services/notification/notification-manager';
 import { StorageProvider, FileInfo, ConnectionStatus } from '@providers/common/storage-provider';
 import { StorageProviderType } from '@models/plugin-settings';
-import { LocalFileInfo, SyncStrategyBase } from '../core/sync-strategies/sync-strategy-base';
-import { LocalToRemoteSync } from '../core/sync-strategies/local-to-remote-sync';
-import { RemoteToLocalSync } from '../core/sync-strategies/remote-to-local-sync';
-import { BidirectionalSync } from '../core/sync-strategies/bidirectional-sync';
-import { SyncPathUtils } from '../utils/sync-path-utils';
-import { SyncFileFilter } from '../utils/sync-file-filter';
+import { LocalFileInfo, SyncStrategyBase } from '@src/core/sync-strategies/sync-strategy-base';
+import { LocalToRemoteSync } from '@src/core/sync-strategies/local-to-remote-sync';
+import { RemoteToLocalSync } from '@src/core/sync-strategies/remote-to-local-sync';
+import { BidirectionalSync } from '@src/core/sync-strategies/bidirectional-sync';
+import { SyncPathUtils } from '@src/utils/sync-path-utils';
+import { SyncFileFilter } from '@src/utils/sync-file-filter';
 import CloudSyncPlugin from '@main';
 
 /**

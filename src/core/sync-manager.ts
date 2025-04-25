@@ -2,13 +2,13 @@ import { App } from 'obsidian';
 import { StorageProvider, FileInfo, ConnectionStatus } from '@providers/common/storage-provider';
 import { NotificationManager } from '@services/notification/notification-manager';
 import { PluginSettings, StorageProviderType } from '@models/plugin-settings';
-import { SyncStrategyBase, LocalFileInfo } from '../core/sync-strategies/sync-strategy-base';
+import { SyncStrategyBase, LocalFileInfo } from '@src/core/sync-strategies/sync-strategy-base';
 import CloudSyncPlugin from '@main';
-import { SyncPathUtils } from '../utils/sync-path-utils';
-import { SyncFileFilter } from '../utils/sync-file-filter';
+import { SyncPathUtils } from '@src/utils/sync-path-utils';
+import { SyncFileFilter } from '@src/utils/sync-file-filter';
 import { Notice } from 'obsidian';
 import { NetworkService, NetworkType } from '@services/network/network-service';
-import { SyncEngine } from '../core/sync-engine';
+import { SyncEngine } from '@src/core/sync-engine';
 
 /**
  * 同步管理器类

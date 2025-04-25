@@ -1,7 +1,7 @@
 import { ConnectionStatus, FileInfo, FileMetadata, QuotaInfo, StorageProviderError } from '@providers/common/storage-provider';
 import { App, RequestUrlParam, requestUrl } from 'obsidian';
 import { WebDAVSettings } from '@models/plugin-settings';
-import { WebDAVBase } from '../webdav-base';
+import { WebDAVBase } from '@providers/webdav/webdav-base';
 import { 
   formatPath, 
   isBinaryContentType, 
@@ -9,7 +9,7 @@ import {
   isTextContentType, 
   parseFileInfoFromResponse, 
   parseQuotaFromResponse 
-} from '../webdav-parsers';
+} from '@providers/webdav/webdav-parsers';
 
 /**
  * 通用WebDAV提供商实现

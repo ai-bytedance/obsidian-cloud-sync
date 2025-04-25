@@ -1,6 +1,6 @@
 import CloudSyncPlugin from '@main';
 import { TFile, TAbstractFile, TFolder, Vault } from 'obsidian';
-import { SyncFileFilter } from '../utils/sync-file-filter';
+import { SyncFileFilter } from '@src/utils/sync-file-filter';
 
 /**
  * 保管库文件信息接口
