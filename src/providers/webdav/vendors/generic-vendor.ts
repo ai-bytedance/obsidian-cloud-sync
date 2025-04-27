@@ -686,7 +686,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
         const contentType = response.headers['content-type'] || '';
         const extension = remotePath.split('.').pop() || '';
         
-        if (this.isBinaryContentType(contentType) || this.isBinaryFileType(extension)) {
+        if (isBinaryContentType(contentType) || isBinaryFileType(extension)) {
           console.log(`文件 ${remotePath} 被识别为二进制类型，返回ArrayBuffer`);
           return response.arrayBuffer;
         } else {
@@ -701,33 +701,6 @@ export class GenericWebDAVVendor extends WebDAVBase {
       console.error('下载WebDAV文件内容失败:', error);
       throw this.handleError(error);
     }
-  }
-  
-  /**
-   * 检查文件类型是否为二进制
-   * @param fileExt 文件扩展名
-   * @returns 是否为二进制文件
-   */
-  private isBinaryFileType(fileExt: string): boolean {
-    return isBinaryFileType(fileExt);
-  }
-  
-  /**
-   * 检查内容类型是否为二进制
-   * @param contentType 内容类型
-   * @returns 是否为二进制内容
-   */
-  private isBinaryContentType(contentType: string): boolean {
-    return isBinaryContentType(contentType);
-  }
-  
-  /**
-   * 检查内容类型是否为文本
-   * @param contentType 内容类型
-   * @returns 是否为文本内容
-   */
-  private isTextContentType(contentType: string): boolean {
-    return isTextContentType(contentType);
   }
 
   /**

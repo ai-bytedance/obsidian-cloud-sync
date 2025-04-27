@@ -1,6 +1,6 @@
 import { App } from 'obsidian';
 import { StorageProvider, FileInfo, FileMetadata, QuotaInfo } from '@providers/common/storage-provider';
-import { WebDAVSettings } from '@models/plugin-settings';
+import { WebDAVSettings, RequestDelayLevel } from '@models/plugin-settings';
 import { WebDAVFactory } from './webdav-factory';
 
 /**
@@ -182,5 +182,33 @@ export class WebDAVProvider implements StorageProvider {
    */
   async getQuota(): Promise<QuotaInfo> {
     return this.provider.getQuota();
+  }
+  
+  /**
+   * 更新请求延迟设置
+   * 如果底层提供商支持，转发调用
+   * @param delayLevel 延迟级别
+   */
+  async updateRequestDelay(delayLevel: RequestDelayLevel): Promise<void> {
+    // 检查底层提供商是否支持此方法
+    if (this.provider && 
+        typeof (this.provider as any).updateRequestDelay === 'function') {
+      return (this.provider as any).updateRequestDelay(delayLevel);
+    }
+    throw new Error('当前提供商不支持更新请求延迟');
+  }
+  
+  /**
+   * 更新账户类型
+   * 如果底层提供商支持，转发调用
+   * @param isPaidUser 是否为付费用户
+   */
+  async updateAccountType(isPaidUser: boolean): Promise<void> {
+    // 检查底层提供商是否支持此方法
+    if (this.provider && 
+        typeof (this.provider as any).updateAccountType === 'function') {
+      return (this.provider as any).updateAccountType(isPaidUser);
+    }
+    throw new Error('当前提供商不支持更新账户类型');
   }
 } 

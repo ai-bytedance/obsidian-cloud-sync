@@ -439,6 +439,26 @@ export function createWebDAVSection(
           }
           tempSettings.providerSettings.webdav.isPaidUser = value === 'true';
           await plugin.saveSettings(tempSettings);
+          
+          // 尝试更新现有WebDAV提供商实例的账户类型设置
+          if (plugin.storageProviders && plugin.storageProviders.has('webdav')) {
+            const provider = plugin.storageProviders.get('webdav');
+            if (provider) {
+              console.log('尝试更新现有WebDAV提供商的账户类型设置');
+              try {
+                // @ts-ignore - 使用动态访问
+                if (typeof provider.updateAccountType === 'function') {
+                  // @ts-ignore
+                  await provider.updateAccountType(value === 'true');
+                  console.log('成功更新WebDAV提供商的账户类型设置');
+                } else {
+                  console.warn('WebDAV提供商不支持动态更新账户类型设置');
+                }
+              } catch (e) {
+                console.warn('无法更新现有WebDAV提供商的账户类型设置:', e);
+              }
+            }
+          }
         }));
     
     // 为设置添加自定义样式
@@ -463,8 +483,34 @@ export function createWebDAVSection(
               syncPath: ''
             };
           }
-          tempSettings.providerSettings.webdav.requestDelay = value as RequestDelayLevel;
+          
+          // 记录延迟设置变更
+          const oldDelay = tempSettings.providerSettings.webdav.requestDelay || 'normal';
+          const newDelay = value as RequestDelayLevel;
+          console.log(`坚果云请求延迟设置更改: ${oldDelay} -> ${newDelay}`);
+          
+          tempSettings.providerSettings.webdav.requestDelay = newDelay;
           await plugin.saveSettings(tempSettings);
+          
+          // 尝试更新现有WebDAV提供商实例的延迟设置
+          if (plugin.storageProviders && plugin.storageProviders.has('webdav')) {
+            const provider = plugin.storageProviders.get('webdav');
+            if (provider) {
+              console.log('尝试更新现有WebDAV提供商的请求延迟设置');
+              try {
+                // @ts-ignore - 使用动态访问
+                if (typeof provider.updateRequestDelay === 'function') {
+                  // @ts-ignore
+                  await provider.updateRequestDelay(newDelay);
+                  console.log('成功更新WebDAV提供商的请求延迟设置');
+                } else {
+                  console.warn('WebDAV提供商不支持动态更新请求延迟设置');
+                }
+              } catch (e) {
+                console.warn('无法更新现有WebDAV提供商的请求延迟设置:', e);
+              }
+            }
+          }
         }));
     
     // 为设置添加自定义样式
