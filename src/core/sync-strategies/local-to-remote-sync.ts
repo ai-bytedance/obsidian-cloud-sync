@@ -2,6 +2,8 @@ import { StorageProvider, FileInfo } from '@providers/common/storage-provider';
 import { StorageProviderType } from '@models/plugin-settings';
 import { SyncStrategyBase, LocalFileInfo } from './sync-strategy-base';
 import { SyncPathUtils } from '@src/utils/sync-path-utils';
+import { processMarkdownContent } from '@src/utils/markdown-processor';
+import { isBinaryFileType } from '@providers/webdav/webdav-parsers';
 import CloudSyncPlugin from '@main';
 
 /**
@@ -164,10 +166,34 @@ export class LocalToRemoteSync extends SyncStrategyBase {
       try {
         if (!remoteFile || new Date(localFile.mtime).getTime() > remoteFile.modifiedTime.getTime()) {
           // 本地文件新于远程，或远程不存在，上传本地文件
-          const content = await this.plugin.app.vault.adapter.read(localFile.path);
-          // 使用带加密功能的上传方法
-          await this.handleEncryptedUpload(this.plugin, provider, content, remotePath, localFile.path);
-          console.log(`上传文件: ${localFile.path} 到 ${remotePath}`);
+          
+          // 检查文件扩展名，判断是否为二进制文件
+          const fileExt = localPath.split('.').pop() || '';
+          const isBinary = isBinaryFileType(fileExt);
+          
+          if (isBinary) {
+            // 二进制文件（图片等）使用二进制读取
+            console.log(`处理二进制文件: ${localPath}`);
+            const binaryContent = await this.plugin.app.vault.adapter.readBinary(localFile.path);
+            
+            // 对二进制内容进行特殊处理
+            await this.handleBinaryUpload(this.plugin, provider, binaryContent, remotePath, localFile.path);
+            console.log(`上传二进制文件: ${localFile.path} 到 ${remotePath}`);
+          } else {
+            // 文本文件使用文本读取
+            const content = await this.plugin.app.vault.adapter.read(localFile.path);
+            
+            // 特殊处理Markdown文件，转换Obsidian特有的链接格式
+            let processedContent = content;
+            if (localFile.path.toLowerCase().endsWith('.md')) {
+              console.log(`处理Markdown文件内容: ${localFile.path}`);
+              processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
+            }
+            
+            // 使用带加密功能的上传方法
+            await this.handleEncryptedUpload(this.plugin, provider, processedContent, remotePath, localFile.path);
+            console.log(`上传文本文件: ${localFile.path} 到 ${remotePath}`);
+          }
         }
       } catch (error) {
         console.error(`上传文件失败: ${localFile.path} -> ${remotePath}`, error);

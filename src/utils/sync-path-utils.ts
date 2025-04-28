@@ -65,22 +65,57 @@ export class SyncPathUtils {
    */
   static joinPaths(basePath: string, relativePath: string): string {
     if (!basePath) {
+      console.log(`基础路径为空，直接使用相对路径: ${relativePath}`);
       return relativePath;
     }
     
     if (!relativePath) {
+      console.log(`相对路径为空，直接使用基础路径: ${basePath}`);
       return basePath;
     }
     
-    // 规范化路径
-    basePath = basePath.trim();
-    relativePath = relativePath.trim();
+    // 规范化路径 - 替换所有反斜杠为正斜杠
+    basePath = basePath.trim().replace(/\\/g, '/');
+    relativePath = relativePath.trim().replace(/\\/g, '/');
     
     // 移除基础路径末尾的斜杠和相对路径开头的斜杠
     basePath = basePath.replace(/\/+$/, '');
     relativePath = relativePath.replace(/^\/+/, '');
     
-    return basePath + '/' + relativePath;
+    // 检查相对路径是否包含附件目录指示符（如"attachments/"前缀）
+    // 这可能会导致附件路径重复
+    const attachmentFolders = ['attachments/', 'assets/', 'images/', 'img/', 'resources/'];
+    
+    // 检查basePath是否已经包含了附件目录
+    let containsAttachmentsPath = false;
+    for (const folder of attachmentFolders) {
+      if (basePath.endsWith(folder.slice(0, -1))) {
+        containsAttachmentsPath = true;
+        break;
+      }
+    }
+    
+    // 检查relativePath是否以附件目录开头
+    let startsWithAttachmentsPath = false;
+    let matchedPrefix = '';
+    for (const folder of attachmentFolders) {
+      if (relativePath.startsWith(folder)) {
+        startsWithAttachmentsPath = true;
+        matchedPrefix = folder;
+        break;
+      }
+    }
+    
+    // 如果已存在附件路径，避免重复
+    if (containsAttachmentsPath && startsWithAttachmentsPath) {
+      console.log(`检测到附件路径重复，移除相对路径中的前缀: ${matchedPrefix}`);
+      relativePath = relativePath.substring(matchedPrefix.length);
+    }
+    
+    const fullPath = basePath + '/' + relativePath;
+    console.log(`路径合并: ${basePath} + ${relativePath} -> ${fullPath}`);
+    
+    return fullPath;
   }
   
   /**

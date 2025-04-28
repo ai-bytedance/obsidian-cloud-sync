@@ -40,7 +40,7 @@ yarn-error.log*
 .hotreload 
 
 # 测试
-tests/*
+*/tests/*
 
 # docs
 docs/*

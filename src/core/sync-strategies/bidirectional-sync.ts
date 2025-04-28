@@ -1,7 +1,10 @@
+import { App } from 'obsidian';
 import { StorageProvider, FileInfo, FileMetadata } from '@providers/common/storage-provider';
 import { StorageProviderType } from '@models/plugin-settings';
 import { SyncStrategyBase, LocalFileInfo } from './sync-strategy-base';
 import { SyncPathUtils } from '@src/utils/sync-path-utils';
+import { processMarkdownContent } from '@src/utils/markdown-processor';
+import { isBinaryFileType } from '@providers/webdav/webdav-parsers';
 import CloudSyncPlugin from '@main';
 
 /**
@@ -37,6 +40,23 @@ export class BidirectionalSync extends SyncStrategyBase {
     sourceFilePath: string
   ): Promise<void> {
     return this.handleEncryptedUpload(this.plugin, provider, content, remotePath, sourceFilePath);
+  }
+  
+  /**
+   * 处理二进制文件上传
+   * @private
+   * @param provider 存储提供商
+   * @param content 二进制文件内容
+   * @param remotePath 远程路径
+   * @param sourceFilePath 源文件路径（用于日志）
+   */
+  private async uploadBinaryFile(
+    provider: StorageProvider,
+    content: ArrayBuffer,
+    remotePath: string,
+    sourceFilePath: string
+  ): Promise<void> {
+    return this.handleBinaryUpload(this.plugin, provider, content, remotePath, sourceFilePath);
   }
   
   /**
@@ -525,6 +545,10 @@ export class BidirectionalSync extends SyncStrategyBase {
       processedFiles.add(localFile.path);
       
       try {
+        // 检查文件扩展名，判断是否为二进制文件
+        const fileExt = localFile.path.split('.').pop() || '';
+        const isBinary = isBinaryFileType(fileExt);
+        
         if (remoteFile) {
           // 文件在本地和远程都存在，比较修改时间
           const localMtime = new Date(localFile.mtime).getTime();
@@ -537,16 +561,48 @@ export class BidirectionalSync extends SyncStrategyBase {
               case 'overwrite':
                 // 总是用本地覆盖远程
                 console.log(`冲突策略：覆盖，上传本地文件: ${localFile.path}`);
-                const content = await this.plugin.app.vault.adapter.read(localFile.path);
-                await this.handleUpload(provider, content, remotePath, localFile.path);
+                
+                if (isBinary) {
+                  // 二进制文件处理
+                  const binaryContent = await this.plugin.app.vault.adapter.readBinary(localFile.path);
+                  await this.uploadBinaryFile(provider, binaryContent, remotePath, localFile.path);
+                } else {
+                  // 文本文件处理
+                  const content = await this.plugin.app.vault.adapter.read(localFile.path);
+                  
+                  // 特殊处理Markdown文件，转换Obsidian特有的链接格式
+                  let processedContent = content;
+                  if (localFile.path.toLowerCase().endsWith('.md')) {
+                    console.log(`处理Markdown文件内容: ${localFile.path}`);
+                    processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
+                  }
+                  
+                  await this.handleUpload(provider, processedContent, remotePath, localFile.path);
+                }
                 break;
                 
               case 'keepLocal':
                 // 保留本地文件，上传到远程
                 if (localMtime > remoteMtime) {
                   console.log(`冲突策略：保留本地，上传更新的文件: ${localFile.path}`);
-                  const content = await this.plugin.app.vault.adapter.read(localFile.path);
-                  await this.handleUpload(provider, content, remotePath, localFile.path);
+                  
+                  if (isBinary) {
+                    // 二进制文件处理
+                    const binaryContent = await this.plugin.app.vault.adapter.readBinary(localFile.path);
+                    await this.uploadBinaryFile(provider, binaryContent, remotePath, localFile.path);
+                  } else {
+                    // 文本文件处理
+                    const content = await this.plugin.app.vault.adapter.read(localFile.path);
+                    
+                    // 特殊处理Markdown文件，转换Obsidian特有的链接格式
+                    let processedContent = content;
+                    if (localFile.path.toLowerCase().endsWith('.md')) {
+                      console.log(`处理Markdown文件内容: ${localFile.path}`);
+                      processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
+                    }
+                    
+                    await this.handleUpload(provider, processedContent, remotePath, localFile.path);
+                  }
                 } else {
                   console.log(`冲突策略：保留本地，忽略远程文件: ${remoteFile.path}`);
                 }
@@ -566,8 +622,24 @@ export class BidirectionalSync extends SyncStrategyBase {
                 // 目前无法真正合并文件内容，使用最新的文件
                 if (localMtime > remoteMtime) {
                   console.log(`冲突策略：合并（使用最新），上传更新的文件: ${localFile.path}`);
-                  const content = await this.plugin.app.vault.adapter.read(localFile.path);
-                  await this.handleUpload(provider, content, remotePath, localFile.path);
+                  
+                  if (isBinary) {
+                    // 二进制文件处理
+                    const binaryContent = await this.plugin.app.vault.adapter.readBinary(localFile.path);
+                    await this.uploadBinaryFile(provider, binaryContent, remotePath, localFile.path);
+                  } else {
+                    // 文本文件处理
+                    const content = await this.plugin.app.vault.adapter.read(localFile.path);
+                    
+                    // 特殊处理Markdown文件，转换Obsidian特有的链接格式
+                    let processedContent = content;
+                    if (localFile.path.toLowerCase().endsWith('.md')) {
+                      console.log(`处理Markdown文件内容: ${localFile.path}`);
+                      processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
+                    }
+                    
+                    await this.handleUpload(provider, processedContent, remotePath, localFile.path);
+                  }
                 } else {
                   console.log(`冲突策略：合并（使用最新），下载更新的文件: ${remoteFile.path}`);
                   await this.handleDownload(provider, remoteFile.path, localFile.path);
@@ -589,8 +661,23 @@ export class BidirectionalSync extends SyncStrategyBase {
             await provider.createFolder(remoteDir);
           }
           
-          const content = await this.plugin.app.vault.adapter.read(localFile.path);
-          await this.handleUpload(provider, content, remotePath, localFile.path);
+          if (isBinary) {
+            // 二进制文件处理
+            const binaryContent = await this.plugin.app.vault.adapter.readBinary(localFile.path);
+            await this.uploadBinaryFile(provider, binaryContent, remotePath, localFile.path);
+          } else {
+            // 文本文件处理
+            const content = await this.plugin.app.vault.adapter.read(localFile.path);
+            
+            // 特殊处理Markdown文件，转换Obsidian特有的链接格式
+            let processedContent = content;
+            if (localFile.path.toLowerCase().endsWith('.md')) {
+              console.log(`处理Markdown文件内容: ${localFile.path}`);
+              processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
+            }
+            
+            await this.handleUpload(provider, processedContent, remotePath, localFile.path);
+          }
         }
       } catch (error) {
         console.error(`同步文件失败: ${localFile.path}`, error);
