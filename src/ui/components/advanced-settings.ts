@@ -25,16 +25,34 @@ export function createAdvancedSection(
   securitySection.createEl('h4', { text: '安全设置', cls: 'cloud-sync-subtitle' });
   
   // 启用加密
-  new Setting(securitySection)
+  const encryptionSetting = new Setting(securitySection)
     .setName('启用加密')
     .setDesc('加密同步的内容')
     .addToggle(toggle => toggle
       .setValue(tempSettings.encryption.enabled)
       .onChange(async (value) => {
+        const wasEnabled = tempSettings.encryption.enabled;
         tempSettings.encryption.enabled = value;
         await plugin.saveSettings(tempSettings);
+        
+        // 如果用户从启用状态切换到禁用状态，显示通知
+        if (wasEnabled && !value) {
+          plugin.notificationManager.show('encryption-warning', '关闭加密后，远端加密的内容会被解密展示！', 5000);
+        }
+        
         await displayFunc(); // 刷新界面以显示/隐藏加密设置
       }));
+  
+  // 当加密功能关闭时，显示警告信息
+  if (!tempSettings.encryption.enabled) {
+    const warningEl = encryptionSetting.descEl.createDiv({
+      text: '关闭加密后，远端加密的内容会被解密展示！',
+      cls: 'setting-item-description cloud-sync-warning'
+    });
+    warningEl.style.color = 'var(--text-error)';
+    // 设置警告文字为粗体
+    warningEl.style.fontWeight = 'bold';
+  }
   
   // 加密设置
   if (tempSettings.encryption.enabled) {

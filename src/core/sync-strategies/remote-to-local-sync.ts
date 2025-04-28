@@ -267,15 +267,8 @@ export class RemoteToLocalSync extends SyncStrategyBase {
               }
             }
             
-            // 下载文件内容
-            const content = await provider.downloadFileContent(remoteFile.path);
-            
-            // 写入本地文件
-            if (typeof content === 'string') {
-              await this.plugin.app.vault.adapter.write(localPath, content);
-            } else {
-              await this.plugin.app.vault.adapter.writeBinary(localPath, content);
-            }
+            // 使用带解密功能的下载方法
+            await this.handleEncryptedDownload(this.plugin, provider, remoteFile.path, localPath);
             
             downloadedCount++;
             console.log(`文件下载成功: ${remoteFile.path} -> ${localPath}`);

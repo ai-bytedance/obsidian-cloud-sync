@@ -165,7 +165,8 @@ export class LocalToRemoteSync extends SyncStrategyBase {
         if (!remoteFile || new Date(localFile.mtime).getTime() > remoteFile.modifiedTime.getTime()) {
           // 本地文件新于远程，或远程不存在，上传本地文件
           const content = await this.plugin.app.vault.adapter.read(localFile.path);
-          await provider.uploadFile(remotePath, content);
+          // 使用带加密功能的上传方法
+          await this.handleEncryptedUpload(this.plugin, provider, content, remotePath, localFile.path);
           console.log(`上传文件: ${localFile.path} 到 ${remotePath}`);
         }
       } catch (error) {

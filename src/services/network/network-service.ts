@@ -1,7 +1,7 @@
 /**
  * 网络服务类
  * 负责检测网络连接状态和类型
- * @author Claude
+ * @author Bing
  */
 
 /**

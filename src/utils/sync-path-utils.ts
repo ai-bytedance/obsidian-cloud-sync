@@ -89,7 +89,7 @@ export class SyncPathUtils {
    * @param remotePath 远程文件路径
    * @param basePath 远程基础路径
    * @returns 映射后的本地路径
-   * @author Claude
+   * @author Bing
    */
   static mapRemotePathToLocal(remotePath: string, basePath: string): string {
     // 如果没有basePath，则直接返回远程路径
