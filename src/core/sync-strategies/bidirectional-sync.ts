@@ -22,6 +22,185 @@ export class BidirectionalSync extends SyncStrategyBase {
   }
   
   /**
+   * 处理文件上传（包含加密逻辑）
+   * @private
+   * @param provider 存储提供商
+   * @param content 文件内容
+   * @param remotePath 远程路径
+   * @param sourceFilePath 源文件路径（用于日志）
+   * @author Claude
+   */
+  private async handleUpload(
+    provider: StorageProvider, 
+    content: string, 
+    remotePath: string, 
+    sourceFilePath: string
+  ): Promise<void> {
+    // 检查是否启用加密
+    if (this.plugin.settings.encryption.enabled && this.plugin.settings.encryption.key) {
+      console.log(`加密已启用，对文件内容进行加密: ${sourceFilePath}`);
+      
+      // 检查内容是否已经是加密内容，避免二次加密
+      const isBase64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(content);
+      if (isBase64 && content.length > 100) {  // 加密后的Base64字符串通常较长
+        console.log(`检测到可能已经是加密内容，避免二次加密: ${sourceFilePath}`);
+        try {
+          // 尝试解密，如果能解密则说明是已加密内容
+          const buffer = await this.base64ToArrayBuffer(content);
+          try {
+            await this.plugin.cryptoService.decrypt(buffer, this.plugin.settings.encryption.key);
+            console.log(`内容已加密，直接上传: ${sourceFilePath}`);
+            // 内容已加密，直接上传
+            await provider.uploadFile(remotePath, content);
+            return;
+          } catch (decryptError) {
+            // 解密失败，说明不是加密内容，继续正常加密流程
+            console.log(`内容不是加密格式，继续执行加密: ${sourceFilePath}`);
+          }
+        } catch (error) {
+          // Base64解析失败，可能不是加密内容，继续正常加密流程
+          console.log(`Base64解析失败，继续执行加密: ${sourceFilePath}`);
+        }
+      }
+      
+      try {
+        // 转换为ArrayBuffer进行加密
+        const contentBuffer = new TextEncoder().encode(content).buffer;
+        const encryptedBuffer = await this.plugin.cryptoService.encrypt(
+          contentBuffer, 
+          this.plugin.settings.encryption.key
+        );
+        
+        // 将加密后的ArrayBuffer转换为Base64字符串
+        const encryptedBase64 = await this.arrayBufferToBase64(encryptedBuffer);
+        
+        // 上传加密的内容
+        // 注意：虽然StorageProvider接口定义的参数是(localPath, remotePath)，
+        // 但实际实现中WebDAV接口的参数是(remotePath, content)
+        await provider.uploadFile(remotePath, encryptedBase64);
+        console.log(`加密上传成功: ${sourceFilePath}`);
+      } catch (encryptError) {
+        console.error(`加密失败: ${sourceFilePath}`, encryptError);
+        // 如果加密失败，使用原始内容上传
+        await provider.uploadFile(remotePath, content);
+      }
+    } else {
+      // 未启用加密，直接上传
+      await provider.uploadFile(remotePath, content);
+    }
+  }
+  
+  /**
+   * 处理文件下载（包含解密逻辑）
+   * @private
+   * @param provider 存储提供商
+   * @param remotePath 远程路径
+   * @param localPath 本地路径
+   * @author Claude
+   */
+  private async handleDownload(
+    provider: StorageProvider,
+    remotePath: string,
+    localPath: string
+  ): Promise<void> {
+    if (!provider.downloadFileContent) {
+      console.error(`当前提供商不支持直接下载文件内容: ${remotePath}`);
+      return;
+    }
+    
+    // 下载文件
+    let content = await provider.downloadFileContent(remotePath);
+    
+    // 检查是否启用加密，并尝试解密内容
+    if (this.plugin.settings.encryption.enabled && 
+        this.plugin.settings.encryption.key && 
+        typeof content === 'string') {
+      console.log(`加密已启用，尝试解密文件内容: ${remotePath}`);
+      
+      // 检测内容是否可能是加密的Base64字符串
+      const isBase64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(content);
+      if (!isBase64) {
+        console.log(`内容不是有效的Base64格式，视为未加密: ${remotePath}`);
+      } else {
+        try {
+          // 尝试将内容转换为ArrayBuffer并解密
+          const contentBuffer = await this.base64ToArrayBuffer(content);
+          const decryptedBuffer = await this.plugin.cryptoService.decrypt(
+            contentBuffer, 
+            this.plugin.settings.encryption.key
+          );
+          
+          // 转换解密后的内容为字符串
+          content = new TextDecoder().decode(decryptedBuffer);
+          console.log(`解密成功: ${remotePath}`);
+        } catch (decryptError) {
+          console.error(`解密失败，可能文件未加密: ${remotePath}`, decryptError);
+          // 如果解密失败，使用原始内容（可能文件本来就未加密）
+          console.log(`使用原始内容: ${remotePath}`);
+        }
+      }
+    } else if (!this.plugin.settings.encryption.enabled) {
+      console.log(`加密未启用，不尝试解密: ${remotePath}`);
+    }
+    
+    // 写入到本地
+    if (typeof content === 'string') {
+      await this.plugin.app.vault.adapter.write(localPath, content);
+      console.log(`文件已写入本地: ${localPath}`);
+    } else {
+      await this.plugin.app.vault.adapter.writeBinary(localPath, content);
+      console.log(`二进制文件已写入本地: ${localPath}`);
+    }
+  }
+  
+  /**
+   * 将ArrayBuffer转换为Base64字符串
+   * @private
+   * @param buffer ArrayBuffer数据
+   * @returns Base64编码的字符串
+   * @author Claude
+   */
+  private async arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+    // 在Web环境中使用原生方法
+    const blob = new Blob([buffer]);
+    const reader = new FileReader();
+    return new Promise<string>((resolve, reject) => {
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        // 移除data URL前缀
+        const base64 = dataUrl.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  
+  /**
+   * 将Base64字符串转换为ArrayBuffer
+   * @private
+   * @param base64 Base64编码的字符串
+   * @returns ArrayBuffer数据
+   * @author Claude
+   */
+  private async base64ToArrayBuffer(base64: string): Promise<ArrayBuffer> {
+    // 检查字符串是否是Base64格式
+    const isBase64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(base64);
+    if (!isBase64) {
+      // 不是Base64，可能是普通文本，直接返回文本的ArrayBuffer
+      return new TextEncoder().encode(base64).buffer;
+    }
+    
+    // 是Base64，解码
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+  
+  /**
    * 确保远程基础路径存在
    * @param provider 存储提供商
    * @param providerType 提供商类型
@@ -504,7 +683,7 @@ export class BidirectionalSync extends SyncStrategyBase {
                 // 总是用本地覆盖远程
                 console.log(`冲突策略：覆盖，上传本地文件: ${localFile.path}`);
                 const content = await this.plugin.app.vault.adapter.read(localFile.path);
-                await provider.uploadFile(remotePath, content);
+                await this.handleUpload(provider, content, remotePath, localFile.path);
                 break;
                 
               case 'keepLocal':
@@ -512,7 +691,7 @@ export class BidirectionalSync extends SyncStrategyBase {
                 if (localMtime > remoteMtime) {
                   console.log(`冲突策略：保留本地，上传更新的文件: ${localFile.path}`);
                   const content = await this.plugin.app.vault.adapter.read(localFile.path);
-                  await provider.uploadFile(remotePath, content);
+                  await this.handleUpload(provider, content, remotePath, localFile.path);
                 } else {
                   console.log(`冲突策略：保留本地，忽略远程文件: ${remoteFile.path}`);
                 }
@@ -522,14 +701,7 @@ export class BidirectionalSync extends SyncStrategyBase {
                 // 保留远程文件，下载到本地
                 if (remoteMtime > localMtime) {
                   console.log(`冲突策略：保留远程，下载更新的文件: ${remoteFile.path}`);
-                  if (provider.downloadFileContent) {
-                    const content = await provider.downloadFileContent(remoteFile.path);
-                    if (typeof content === 'string') {
-                      await this.plugin.app.vault.adapter.write(localFile.path, content);
-                    } else {
-                      await this.plugin.app.vault.adapter.writeBinary(localFile.path, content);
-                    }
-                  }
+                  await this.handleDownload(provider, remoteFile.path, localFile.path);
                 } else {
                   console.log(`冲突策略：保留远程，忽略本地文件: ${localFile.path}`);
                 }
@@ -540,17 +712,10 @@ export class BidirectionalSync extends SyncStrategyBase {
                 if (localMtime > remoteMtime) {
                   console.log(`冲突策略：合并（使用最新），上传更新的文件: ${localFile.path}`);
                   const content = await this.plugin.app.vault.adapter.read(localFile.path);
-                  await provider.uploadFile(remotePath, content);
+                  await this.handleUpload(provider, content, remotePath, localFile.path);
                 } else {
                   console.log(`冲突策略：合并（使用最新），下载更新的文件: ${remoteFile.path}`);
-                  if (provider.downloadFileContent) {
-                    const content = await provider.downloadFileContent(remoteFile.path);
-                    if (typeof content === 'string') {
-                      await this.plugin.app.vault.adapter.write(localFile.path, content);
-                    } else {
-                      await this.plugin.app.vault.adapter.writeBinary(localFile.path, content);
-                    }
-                  }
+                  await this.handleDownload(provider, remoteFile.path, localFile.path);
                 }
                 break;
             }
@@ -561,8 +726,16 @@ export class BidirectionalSync extends SyncStrategyBase {
         } else {
           // 文件只在本地存在，上传到远程
           console.log(`本地独有文件，上传到远程: ${localFile.path}`);
+          
+          // 确保远程目录存在
+          const remoteDir = remotePath.split('/').slice(0, -1).join('/');
+          if (remoteDir && !await provider.folderExists(remoteDir)) {
+            console.log(`创建远程目录: ${remoteDir}`);
+            await provider.createFolder(remoteDir);
+          }
+          
           const content = await this.plugin.app.vault.adapter.read(localFile.path);
-          await provider.uploadFile(remotePath, content);
+          await this.handleUpload(provider, content, remotePath, localFile.path);
         }
       } catch (error) {
         console.error(`同步文件失败: ${localFile.path}`, error);
@@ -614,23 +787,7 @@ export class BidirectionalSync extends SyncStrategyBase {
       
       try {
         console.log(`远程独有文件，下载到本地: ${remoteFile.path} -> ${localPath}`);
-        if (provider.downloadFileContent) {
-          // 确保目录存在
-          const dirPath = localPath.split('/').slice(0, -1).join('/');
-          if (dirPath) {
-            await this.plugin.app.vault.adapter.mkdir(dirPath);
-          }
-          
-          // 下载文件
-          const content = await provider.downloadFileContent(remoteFile.path);
-          if (typeof content === 'string') {
-            await this.plugin.app.vault.adapter.write(localPath, content);
-          } else {
-            await this.plugin.app.vault.adapter.writeBinary(localPath, content);
-          }
-        } else {
-          console.warn('当前存储提供商不支持直接下载文件内容');
-        }
+        await this.handleDownload(provider, remoteFile.path, localPath);
       } catch (error) {
         console.error(`下载远程文件失败: ${remoteFile.path} -> ${localPath}`, error);
       }
