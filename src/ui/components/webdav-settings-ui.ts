@@ -10,6 +10,7 @@ import { WebDAVProvider } from '@providers/webdav/webdav-provider';
  * @param tempSettings 临时设置对象
  * @param testingConnection 测试连接状态
  * @param setTestingConnection 设置测试连接状态函数
+ * @param displayFunc 可选的界面刷新回调函数
  * @author Bing
  */
 export function createWebDAVSection(
@@ -17,7 +18,8 @@ export function createWebDAVSection(
   plugin: CloudSyncPlugin, 
   tempSettings: PluginSettings,
   testingConnection: boolean,
-  setTestingConnection: (value: boolean) => void
+  setTestingConnection: (value: boolean) => void,
+  displayFunc?: () => Promise<void>
 ): void {
   const webdavSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
   
@@ -343,7 +345,20 @@ export function createWebDAVSection(
             }
             
             timerId = setTimeout(() => {
-              plugin.settingTab.display();
+              // 使用传入的回调函数进行界面刷新
+              if (displayFunc) {
+                console.log('使用传入的回调函数刷新界面');
+                displayFunc().catch(error => {
+                  console.error('界面刷新失败:', error);
+                });
+              } else if (plugin.settingTab && typeof plugin.settingTab.display === 'function') {
+                console.log('使用settingTab.display刷新界面');
+                plugin.settingTab.display().catch(error => {
+                  console.error('界面刷新失败:', error);
+                });
+              } else {
+                console.warn('无法刷新界面：找不到可用的刷新函数');
+              }
             }, 1000); // 用户停止输入1秒后再刷新
           } else if (!hasJianguoyun && value && providerSpecificSection) {
             console.log('非坚果云URL，更新提示');

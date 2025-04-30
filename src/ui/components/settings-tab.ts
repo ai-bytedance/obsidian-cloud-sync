@@ -165,7 +165,8 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         this.plugin, 
         this.tempSettings, 
         this.testingConnection, 
-        (value: boolean) => this.testingConnection = value
+        (value: boolean) => this.testingConnection = value,
+        this.display.bind(this)
       );
     }
     
