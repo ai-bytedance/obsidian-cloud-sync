@@ -273,41 +273,8 @@ export function createAdvancedSection(
       return dropdown;
     });
   
-  // 创建危险操作面板
-  const dangerSection = syncSection.createEl('div', { 
-    cls: 'cloud-sync-settings cloud-sync-subsection' 
-  });
-  
-  // 为危险操作面板设置样式，类似坚果云面板但使用红色主题
-  dangerSection.style.margin = '1em 0';
-  dangerSection.style.padding = '1em';
-  dangerSection.style.borderRadius = '5px';
-  dangerSection.style.backgroundColor = 'rgba(224, 30, 30, 0.05)';
-  dangerSection.style.borderLeft = '3px solid var(--text-error)';
-  
-  // 添加"危险操作"小标题
-  const dangerHeader = dangerSection.createEl('div', {
-    cls: 'cloud-sync-jianguoyun-header'
-  });
-  
-  dangerHeader.createEl('h4', {
-    text: '⚠️ 危险操作',
-    cls: 'cloud-sync-subtitle'
-  }).style.color = 'var(--text-error) !important';
-  
-  // 添加警告信息面板
-  const warningPanel = dangerSection.createEl('div', {
-    cls: 'cloud-sync-info-panel'
-  });
-  warningPanel.style.backgroundColor = 'rgba(224, 30, 30, 0.1)';
-  
-  // 添加警告文字
-  warningPanel.createEl('p', {
-    cls: 'cloud-sync-info-text'
-  }).innerHTML = '以下操作可能会<span class="highlight">永久删除</span>您的文件和文件夹。请仅在完全理解操作后果的情况下启用。';
-  
-  // 删除远程多余文件
-  const remoteFilesDeleteSetting = new Setting(dangerSection)
+  // 删除远程多余文件（直接添加到syncSection中，移除所有样式）
+  const remoteFilesDeleteSetting = new Setting(syncSection)
     .setName('删除远程多余文件夹及文件')
     .setDesc('请谨慎启用此选项，可能会删除未同步的远程文件和文件夹。')
     .addToggle(toggle => toggle
@@ -315,15 +282,24 @@ export function createAdvancedSection(
       .onChange(async (value) => {
         tempSettings.deleteRemoteExtraFiles = value;
         await plugin.saveSettings(tempSettings);
+        
+        // 当用户开启此功能时显示警告提示
+        if (value) {
+          plugin.notificationManager.show(
+            'delete-remote-warning', 
+            '请谨慎启用此选项，开启后会永久删除您的文件和文件夹!', 
+            3000
+          );
+        }
       }));
   
-  // 添加样式
-  remoteFilesDeleteSetting.settingEl.addClass('cloud-sync-jianguoyun-setting');
+  // 直接设置描述文本样式
+  remoteFilesDeleteSetting.descEl.style.fontWeight = 'bold';
   remoteFilesDeleteSetting.descEl.style.color = 'var(--text-error)';
-  remoteFilesDeleteSetting.descEl.style.fontWeight = '500';
-
-  // 删除本地多余文件
-  const localFilesDeleteSetting = new Setting(dangerSection)
+  remoteFilesDeleteSetting.descEl.style.fontSize = '0.7em'; // 设置更小的字体大小(0.7em)
+  
+  // 删除本地多余文件（直接添加到syncSection中，移除所有样式）
+  const localFilesDeleteSetting = new Setting(syncSection)
     .setName('删除本地多余文件夹及文件')
     .setDesc('请谨慎启用此选项，可能会删除未同步的本地文件和文件夹。')
     .addToggle(toggle => toggle
@@ -331,12 +307,21 @@ export function createAdvancedSection(
       .onChange(async (value) => {
         tempSettings.deleteLocalExtraFiles = value;
         await plugin.saveSettings(tempSettings);
+        
+        // 当用户开启此功能时显示警告提示
+        if (value) {
+          plugin.notificationManager.show(
+            'delete-local-warning', 
+            '请谨慎启用此选项，开启后会永久删除您的文件和文件夹！', 
+            3000
+          );
+        }
       }));
       
-  // 添加样式
-  localFilesDeleteSetting.settingEl.addClass('cloud-sync-jianguoyun-setting');
+  // 直接设置描述文本样式
+  localFilesDeleteSetting.descEl.style.fontWeight = 'bold';
   localFilesDeleteSetting.descEl.style.color = 'var(--text-error)';
-  localFilesDeleteSetting.descEl.style.fontWeight = '500';
+  localFilesDeleteSetting.descEl.style.fontSize = '0.7em'; // 设置更小的字体大小(0.7em)
   
   // 基础设置
   const baseSection = advancedSection.createEl('div', { cls: 'cloud-sync-settings cloud-sync-subsection' });
