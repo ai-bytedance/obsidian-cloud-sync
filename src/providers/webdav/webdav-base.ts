@@ -8,6 +8,8 @@ import {
 } from '@providers/common/storage-provider';
 import { App } from 'obsidian';
 import { WebDAVSettings } from '@models/plugin-settings';
+import { ModuleLogger } from '@services/log/log-service';
+import CloudSyncPlugin from '@main';
 
 /**
  * WebDAV提供者基类
@@ -30,14 +32,24 @@ export abstract class WebDAVBase implements StorageProvider {
   protected status: ConnectionStatus = ConnectionStatus.DISCONNECTED;
   
   /**
+   * 日志记录器
+   */
+  protected logger: ModuleLogger | null = null;
+  
+  /**
    * 创建WebDAV提供者实例
    * @param config WebDAV配置
    * @param app Obsidian应用实例
+   * @param plugin 可选，插件实例，用于获取日志服务
    * @author Bing
    */
-  constructor(config: WebDAVSettings, app: App) {
+  constructor(config: WebDAVSettings, app: App, plugin?: CloudSyncPlugin) {
     this.config = config;
     this.app = app;
+    
+    if (plugin && plugin.logService) {
+      this.logger = plugin.logService.getModuleLogger('WebDAVBase');
+    }
   }
   
   /**

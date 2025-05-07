@@ -8,6 +8,7 @@ import { BidirectionalSync } from '@src/core/sync-strategies/bidirectional-sync'
 import { SyncPathUtils } from '@src/utils/sync-path-utils';
 import { SyncFileFilter } from '@src/utils/sync-file-filter';
 import CloudSyncPlugin from '@main';
+import { LogService, ModuleLogger } from '@services/log/log-service';
 
 /**
  * 同步引擎类
@@ -18,6 +19,7 @@ export class SyncEngine {
   private localToRemoteSync: LocalToRemoteSync;
   private remoteToLocalSync: RemoteToLocalSync;
   private bidirectionalSync: BidirectionalSync;
+  private logger: ModuleLogger;
   
   /**
    * 构造函数
@@ -29,6 +31,9 @@ export class SyncEngine {
     private plugin: CloudSyncPlugin,
     private notificationManager: NotificationManager
   ) {
+    // 初始化日志记录器
+    this.logger = this.plugin.logService.getModuleLogger('SyncEngine');
+    
     // 初始化同步策略
     this.localToRemoteSync = new LocalToRemoteSync(plugin);
     this.remoteToLocalSync = new RemoteToLocalSync(plugin);
@@ -49,7 +54,7 @@ export class SyncEngine {
     // 对每个存储提供商执行同步
     for (const [providerType, provider] of this.plugin.storageProviders.entries()) {
       try {
-        console.log(`同步提供商: ${providerType} (${provider.getName()})`);
+        this.logger.info(`同步提供商: ${providerType} (${provider.getName()})`);
         
         // 对于手动同步，显示进度通知
         if (!isAutoSync) {
@@ -57,11 +62,11 @@ export class SyncEngine {
         }
         
         // 添加更详细的日志，显示当前同步设置
-        console.log(`当前同步设置: 同步模式=${this.plugin.settings.syncMode}, 同步方向=${this.plugin.settings.syncDirection}`);
+        this.logger.info(`当前同步设置: 同步模式=${this.plugin.settings.syncMode}, 同步方向=${this.plugin.settings.syncDirection}`);
         
         // 检查连接状态
         if (provider.getStatus() !== ConnectionStatus.CONNECTED) {
-          console.log(`提供商 ${providerType} 未连接，尝试连接...`);
+          this.logger.info(`提供商 ${providerType} 未连接，尝试连接...`);
           
           let connectSuccess = false;
           let connectAttempts = 0;
@@ -71,10 +76,10 @@ export class SyncEngine {
             try {
               connectSuccess = await provider.connect();
               if (connectSuccess) {
-                console.log(`提供商 ${providerType} 连接成功`);
+                this.logger.info(`提供商 ${providerType} 连接成功`);
               } else {
                 connectAttempts++;
-                console.log(`提供商 ${providerType} 连接失败 (尝试 ${connectAttempts}/${maxConnectAttempts + 1})`);
+                this.logger.warning(`提供商 ${providerType} 连接失败 (尝试 ${connectAttempts}/${maxConnectAttempts + 1})`);
                 if (connectAttempts <= maxConnectAttempts) {
                   // 等待一秒再重试
                   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -82,7 +87,7 @@ export class SyncEngine {
               }
             } catch (connectError) {
               connectAttempts++;
-              console.error(`提供商 ${providerType} 连接错误 (尝试 ${connectAttempts}/${maxConnectAttempts + 1}):`, connectError);
+              this.logger.error(`提供商 ${providerType} 连接错误 (尝试 ${connectAttempts}/${maxConnectAttempts + 1}):`, connectError);
               
               // 如果是最后一次尝试，抛出错误
               if (connectAttempts > maxConnectAttempts) {
@@ -100,23 +105,23 @@ export class SyncEngine {
           }
         }
         
-        console.log(`开始同步提供商: ${providerType}`);
+        this.logger.info(`开始同步提供商: ${providerType}`);
         
         // 获取本地文件列表
-        console.log('获取本地文件列表...');
+        this.logger.info('获取本地文件列表...');
         const localFiles = await this.getLocalFiles();
-        console.log(`本地文件数量: ${localFiles.length}`);
+        this.logger.info(`本地文件数量: ${localFiles.length}`);
         
         // 确保远程根目录存在
-        console.log('确保远程根目录存在...');
+        this.logger.info('确保远程根目录存在...');
         try {
           await this.ensureRemoteRootDir(provider);
         } catch (dirError) {
-          console.error('确保远程根目录存在失败:', dirError);
+          this.logger.error('确保远程根目录存在失败:', dirError);
           
           // 对于WebDAV提供商，特别是坚果云，继续尝试
           if (providerType === 'webdav' && provider.getName() === 'WebDAV') {
-            console.log('远程根目录处理失败，但尝试继续同步（坚果云可能不需要显式创建目录）');
+            this.logger.info('远程根目录处理失败，但尝试继续同步（坚果云可能不需要显式创建目录）');
           } else {
             throw dirError;
           }
@@ -124,30 +129,30 @@ export class SyncEngine {
         
         // 获取远程文件列表
         const remotePath = SyncPathUtils.getRemoteBasePath(this.plugin.settings, providerType);
-        console.log(`获取远程文件列表，路径: ${remotePath || '根目录'}...`);
+        this.logger.info(`获取远程文件列表，路径: ${remotePath || '根目录'}...`);
         let remoteFiles: FileInfo[] = [];
         try {
           remoteFiles = await provider.listFiles(remotePath);
-          console.log(`远程文件数量: ${remoteFiles.length}`);
+          this.logger.info(`远程文件数量: ${remoteFiles.length}`);
         } catch (error) {
-          console.error(`获取远程文件列表失败:`, error);
+          this.logger.error(`获取远程文件列表失败:`, error);
           
           // 尝试修复: 如果是首次同步，可能远程目录不存在，创建它
           if (error.code === 'NOT_FOUND' || error.status === 404) {
-            console.log('远程目录不存在，尝试创建...');
+            this.logger.info('远程目录不存在，尝试创建...');
             try {
               await provider.createFolder(remotePath);
-              console.log('远程目录创建成功，重新获取文件列表...');
+              this.logger.info('远程目录创建成功，重新获取文件列表...');
               
               // 再次尝试获取远程文件列表
               remoteFiles = await provider.listFiles(remotePath);
-              console.log(`远程文件数量: ${remoteFiles.length}`);
+              this.logger.info(`远程文件数量: ${remoteFiles.length}`);
             } catch (createError) {
-              console.error('创建远程目录失败:', createError);
+              this.logger.error('创建远程目录失败:', createError);
               
               // 对于坚果云，继续尝试
               if (providerType === 'webdav' && provider.getName() === 'WebDAV') {
-                console.log('尝试在没有明确创建目录的情况下继续同步');
+                this.logger.info('尝试在没有明确创建目录的情况下继续同步');
                 remoteFiles = []; // 使用空数组继续
               } else {
                 throw createError;
@@ -163,7 +168,7 @@ export class SyncEngine {
         }
         
         // 根据同步模式和同步方向执行同步
-        console.log(`使用同步模式: ${this.plugin.settings.syncMode}, 同步方向: ${this.plugin.settings.syncDirection}`);
+        this.logger.info(`使用同步模式: ${this.plugin.settings.syncMode}, 同步方向: ${this.plugin.settings.syncDirection}`);
         
         try {
           // 更新进度通知
@@ -182,19 +187,19 @@ export class SyncEngine {
           
           // 根据同步方向决定同步操作
           const syncDirection = this.plugin.settings.syncDirection;
-          console.log(`执行同步操作，当前同步方向: ${syncDirection}`);
+          this.logger.info(`执行同步操作，当前同步方向: ${syncDirection}`);
           
           if (syncDirection === 'uploadOnly') {
             // 仅上传模式
-            console.log(`使用本地到远程同步策略 (仅上传模式)`);
+            this.logger.info(`使用本地到远程同步策略 (仅上传模式)`);
             await this.localToRemoteSync.sync(provider, typedLocalFiles, remoteFiles, providerType);
           } else if (syncDirection === 'downloadOnly') {
             // 仅下载模式
-            console.log(`使用远程到本地同步策略 (仅下载模式)`);
+            this.logger.info(`使用远程到本地同步策略 (仅下载模式)`);
             await this.remoteToLocalSync.sync(provider, typedLocalFiles, remoteFiles, providerType);
           } else {
             // 双向同步
-            console.log(`使用双向同步策略 (双向模式)`);
+            this.logger.info(`使用双向同步策略 (双向模式)`);
             await this.bidirectionalSync.sync(provider, typedLocalFiles, remoteFiles, providerType);
           }
           
@@ -203,7 +208,7 @@ export class SyncEngine {
             this.notificationManager.clear('sync-executing');
           }
         } catch (syncError) {
-          console.error(`同步操作失败:`, syncError);
+          this.logger.error(`同步操作失败:`, syncError);
           
           // 清除进度通知
           if (!isAutoSync) {
@@ -218,9 +223,9 @@ export class SyncEngine {
           }
         }
         
-        console.log(`提供商 ${providerType} 同步完成`);
+        this.logger.info(`提供商 ${providerType} 同步完成`);
       } catch (error) {
-        console.error(`提供商 ${providerType} 同步失败:`, error);
+        this.logger.error(`提供商 ${providerType} 同步失败:`, error);
         
         // 清除任何进度通知
         if (!isAutoSync) {
@@ -242,34 +247,34 @@ export class SyncEngine {
    */
   private async ensureRemoteRootDir(provider: StorageProvider) {
     try {
-      console.log('检查远程根目录是否存在...');
+      this.logger.info('检查远程根目录是否存在...');
       const remotePath = '';
       
       // 检查根目录是否存在，不存在则创建
       const exists = await provider.folderExists(remotePath);
       
       if (!exists) {
-        console.log('远程根目录不存在，尝试创建...');
+        this.logger.info('远程根目录不存在，尝试创建...');
         try {
           await provider.createFolder(remotePath);
-          console.log('远程根目录创建成功');
+          this.logger.info('远程根目录创建成功');
         } catch (createError) {
-          console.error('创建远程根目录失败:', createError);
+          this.logger.error('创建远程根目录失败:', createError);
           
           // 对于坚果云特殊处理，某些错误可以忽略
           if (provider.getName() === 'WebDAV' && 
               (createError.code === 'AUTH_FAILED' || createError.status === 403)) {
-            console.log('坚果云可能不需要显式创建根目录，继续执行...');
+            this.logger.info('坚果云可能不需要显式创建根目录，继续执行...');
             return;
           }
           
           throw createError;
         }
       } else {
-        console.log('远程根目录已存在');
+        this.logger.info('远程根目录已存在');
       }
     } catch (error) {
-      console.error('确保远程根目录存在失败:', error);
+      this.logger.error('确保远程根目录存在失败:', error);
       
       // 如果是认证错误，提供更明确的提示
       if (error.code === 'AUTH_FAILED' || error.status === 401 || error.status === 403) {
@@ -294,13 +299,13 @@ export class SyncEngine {
     const getFilesRecursively = async (dir: string = '', depth: number = 0) => {
       // 添加深度限制
       if (depth > MAX_RECURSION_DEPTH) {
-        console.warn(`达到最大递归深度 ${MAX_RECURSION_DEPTH}，停止扫描: ${dir}`);
+        this.logger.warning(`达到最大递归深度 ${MAX_RECURSION_DEPTH}，停止扫描: ${dir}`);
         return;
       }
       
       // 防止重复处理同一路径
       if (processed.has(dir)) {
-        console.warn(`检测到重复路径: ${dir}，跳过处理`);
+        this.logger.warning(`检测到重复路径: ${dir}，跳过处理`);
         return;
       }
       
@@ -312,7 +317,7 @@ export class SyncEngine {
       for (const file of dirItems.files) {
         // 检查是否在忽略列表中
         const filePath = { path: file };
-        if (SyncFileFilter.shouldIgnoreFile(filePath, this.plugin.settings)) {
+        if (SyncFileFilter.shouldExcludeFile(filePath, this.plugin.settings)) {
           continue;
         }
         
@@ -327,7 +332,7 @@ export class SyncEngine {
             });
           }
         } catch (e) {
-          console.error(`无法获取文件信息: ${file}`, e);
+          this.logger.error(`无法获取文件信息: ${file}`, e);
         }
       }
       
@@ -335,7 +340,7 @@ export class SyncEngine {
       for (const folder of dirItems.folders) {
         // 检查是否在忽略列表中
         const folderPath = { path: folder };
-        if (SyncFileFilter.shouldIgnoreFile(folderPath, this.plugin.settings)) {
+        if (SyncFileFilter.shouldExcludeFile(folderPath, this.plugin.settings)) {
           continue;
         }
         
@@ -351,7 +356,7 @@ export class SyncEngine {
             });
           }
         } catch (e) {
-          console.error(`无法获取文件夹信息: ${folder}`, e);
+          this.logger.error(`无法获取文件夹信息: ${folder}`, e);
           // 即使获取统计信息失败，仍然添加文件夹以确保同步
           items.push({
             path: folder,
@@ -370,12 +375,12 @@ export class SyncEngine {
     
     // 增强日志输出，显示扫描到的文件夹
     const folders = items.filter(item => item.isFolder);
-    console.log(`本地文件扫描完成，共发现 ${items.length} 个文件，其中 ${folders.length} 个文件夹，最大递归深度: ${MAX_RECURSION_DEPTH}`);
+    this.logger.info(`本地文件扫描完成，共发现 ${items.length} 个文件，其中 ${folders.length} 个文件夹，最大递归深度: ${MAX_RECURSION_DEPTH}`);
     
     if (folders.length > 0) {
-      console.log('本地文件夹列表:');
+      this.logger.debug('本地文件夹列表:');
       for (const folder of folders) {
-        console.log(`- ${folder.path}`);
+        this.logger.debug(`- ${folder.path}`);
       }
     }
     

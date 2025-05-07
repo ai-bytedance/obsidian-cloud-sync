@@ -100,7 +100,6 @@ export default class CloudSyncPlugin extends Plugin {
 	async manualSync(): Promise<boolean> {
 		// 如果已有同步正在进行，直接返回
 		if (this.syncInProgress) {
-			console.warn('已有同步操作正在进行，跳过此次调用');
 			this.logService?.warning('已有同步操作正在进行，跳过此次调用');
 			return false;
 		}
@@ -111,7 +110,6 @@ export default class CloudSyncPlugin extends Plugin {
 			
 			// 设置同步超时保护
 			this.syncTimeoutId = setTimeout(() => {
-				console.warn('同步操作超时，强制终止');
 				this.logService?.warning('同步操作超时，强制终止');
 				this.syncInProgress = false;
 				this.notificationManager.show('sync-timeout', '同步操作超时，已自动中断', 5000);

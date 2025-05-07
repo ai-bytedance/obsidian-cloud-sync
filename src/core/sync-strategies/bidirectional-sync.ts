@@ -20,8 +20,9 @@ export class BidirectionalSync extends SyncStrategyBase {
    * @param plugin 插件实例
    * @author Bing
    */
-  constructor(private plugin: CloudSyncPlugin) {
-    super();
+  constructor(plugin: CloudSyncPlugin) {
+    super(plugin);
+    this.logger = plugin.logService.getModuleLogger('BidirectionalSync');
   }
   
   /**
@@ -89,21 +90,21 @@ export class BidirectionalSync extends SyncStrategyBase {
     const basePath = SyncPathUtils.getRemoteBasePath(this.plugin.settings, providerType);
     if (!basePath) return true; // 不需要基础路径时直接返回true
     
-    console.log(`检查远程基础路径是否存在: ${basePath}`);
+    this.logger.info(`检查远程基础路径是否存在: ${basePath}`);
     
     try {
       // 检查远程基础路径是否存在
       const exists = await provider.folderExists(basePath);
       if (!exists) {
-        console.log(`远程基础路径不存在，尝试创建: ${basePath}`);
+        this.logger.info(`远程基础路径不存在，尝试创建: ${basePath}`);
         await provider.createFolder(basePath);
-        console.log(`成功创建远程基础路径: ${basePath}`);
+        this.logger.info(`成功创建远程基础路径: ${basePath}`);
       } else {
-        console.log(`远程基础路径已存在: ${basePath}`);
+        this.logger.info(`远程基础路径已存在: ${basePath}`);
       }
       return true;
     } catch (error) {
-      console.error(`无法确保远程基础路径存在: ${basePath}`, error);
+      this.logger.error(`无法确保远程基础路径存在: ${basePath}`, error);
       return false;
     }
   }
@@ -122,10 +123,10 @@ export class BidirectionalSync extends SyncStrategyBase {
     remoteFiles: FileInfo[],
     providerType: StorageProviderType
   ): Promise<void> {
-    console.log('===========================================');
-    console.log('【BidirectionalSync】执行双向同步...');
-    console.log(`提供商类型: ${providerType}, 同步模式: ${this.plugin.settings.syncMode}`);
-    console.log('===========================================');
+    this.logger.info('===========================================');
+    this.logger.info('【BidirectionalSync】执行双向同步...');
+    this.logger.info(`提供商类型: ${providerType}, 同步模式: ${this.plugin.settings.syncMode}`);
+    this.logger.info('===========================================');
 
     if (this.plugin.settings.syncMode === 'incremental') {
       await this.syncIncremental(provider, localFiles, remoteFiles, providerType);
@@ -167,46 +168,46 @@ export class BidirectionalSync extends SyncStrategyBase {
     remoteFiles: FileInfo[],
     providerType: StorageProviderType
   ): Promise<void> {
-    console.log('============= 开始执行增量同步（双向）=============');
+    this.logger.info('============= 开始执行增量同步（双向）=============');
     
     // 获取远程根路径
     const basePath = SyncPathUtils.getRemoteBasePath(this.plugin.settings, providerType);
-    console.log(`使用远程基础路径: ${basePath || '/'}`);
+    this.logger.info(`使用远程基础路径: ${basePath || '/'}`);
     
     // 确保远程基础路径存在
     const basePathExists = await this.ensureRemoteBasePath(provider, providerType);
     if (!basePathExists) {
-      console.warn('无法确保远程基础路径存在，同步操作可能不完整');
+      this.logger.warning('无法确保远程基础路径存在，同步操作可能不完整');
     }
     
     // 创建映射以加速查找
     const localFilesMap = this.createLocalFilesMap(localFiles);
     const remoteFilesMap = this.createRemoteFilesMap(remoteFiles);
     
-    console.log(`初始状态: 本地文件共 ${localFiles.length} 个 (${localFiles.filter(f => f.isFolder).length} 个文件夹), 远程文件共 ${remoteFiles.length} 个 (${remoteFiles.filter(f => f.isFolder).length} 个文件夹)`);
+    this.logger.info(`初始状态: 本地文件共 ${localFiles.length} 个 (${localFiles.filter(f => f.isFolder).length} 个文件夹), 远程文件共 ${remoteFiles.length} 个 (${remoteFiles.filter(f => f.isFolder).length} 个文件夹)`);
     
     // 本地文件对应的远程路径集合 (用于检测远程已删除的文件)
     const localPathSet = new Set<string>();
     
     // 创建本地文件夹和收集本地文件夹路径
     const localFoldersSet = new Set<string>();
-    console.log('收集所有本地文件夹路径...');
+    this.logger.info('收集所有本地文件夹路径...');
     
     for (const localFile of localFiles) {
       if (localFile.isFolder) {
         // 过滤不相关的文件夹，避免同步
         if (this.isSystemOrUnrelatedFolder(localFile.path)) {
-          console.log(`跳过系统或不相关文件夹: ${localFile.path}`);
+          this.logger.info(`跳过系统或不相关文件夹: ${localFile.path}`);
           continue;
         }
         
         localFoldersSet.add(localFile.path);
-        console.log(`记录现有本地文件夹: ${localFile.path}`);
+        this.logger.info(`记录现有本地文件夹: ${localFile.path}`);
         
         // 构建远程路径，将其添加到localPathSet
         const remotePath = basePath ? `${basePath}/${localFile.path}` : localFile.path;
         localPathSet.add(remotePath);
-        console.log(`添加到本地路径集合: ${remotePath}`);
+        this.logger.info(`添加到本地路径集合: ${remotePath}`);
       } else {
         // 对于普通文件，也添加到路径集合
         const remotePath = basePath ? `${basePath}/${localFile.path}` : localFile.path;
@@ -215,22 +216,22 @@ export class BidirectionalSync extends SyncStrategyBase {
     }
     
     // 统计并记录本地文件夹数量
-    console.log(`共发现 ${localFoldersSet.size} 个本地文件夹，已添加到路径集合`);
+    this.logger.info(`共发现 ${localFoldersSet.size} 个本地文件夹，已添加到路径集合`);
     if (localFoldersSet.size > 0) {
-      console.log('所有本地文件夹:');
+      this.logger.info('所有本地文件夹:');
       for (const folder of localFoldersSet) {
-        console.log(`- ${folder} -> ${basePath ? `${basePath}/${folder}` : folder}`);
+        this.logger.info(`- ${folder} -> ${basePath ? `${basePath}/${folder}` : folder}`);
       }
     }
     
     // 预处理步骤: 先处理远程文件夹，确保本地存在对应的文件夹结构
-    console.log('预处理: 确保远程文件夹结构在本地存在...');
+    this.logger.info('预处理: 确保远程文件夹结构在本地存在...');
     const remoteFolders = remoteFiles.filter(file => file.isFolder);
     
     // 输出所有远程文件夹，方便调试
-    console.log(`检测到 ${remoteFolders.length} 个远程文件夹:`);
+    this.logger.info(`检测到 ${remoteFolders.length} 个远程文件夹:`);
     for (const folder of remoteFolders) {
-      console.log(`- 远程文件夹: ${folder.path}`);
+      this.logger.info(`- 远程文件夹: ${folder.path}`);
     }
     
     // 按路径深度排序，确保父文件夹在子文件夹之前处理
@@ -241,18 +242,18 @@ export class BidirectionalSync extends SyncStrategyBase {
     });
     
     // 使用专门的方法确保本地文件夹结构在远程存在
-    console.log('===== 同步阶段1：确保所有本地文件夹在远程存在 =====');
+    this.logger.info('===== 同步阶段1：确保所有本地文件夹在远程存在 =====');
     // 收集所有本地文件夹进行同步
     const localFolders = localFiles.filter(file => file.isFolder);
     if (localFolders.length > 0) {
-      console.log(`找到 ${localFolders.length} 个本地文件夹需要同步到远程`);
+      this.logger.info(`找到 ${localFolders.length} 个本地文件夹需要同步到远程`);
       
       // 创建一个集合来跟踪应该删除的本地文件夹
       const localFoldersToDelete = new Set<string>();
       
       // 如果启用了删除本地多余文件，标记多余的本地文件夹
       if (this.plugin.settings.deleteLocalExtraFiles) {
-        console.log('预处理：标记需要删除的本地多余文件夹...');
+        this.logger.info('预处理：标记需要删除的本地多余文件夹...');
         
         // 统计所有远程文件夹路径
         const remotePathSet = new Set<string>();
@@ -262,10 +263,10 @@ export class BidirectionalSync extends SyncStrategyBase {
             let localPath = SyncPathUtils.mapRemotePathToLocal(remoteFile.path, basePath);
             // 如果是空路径（基础路径本身），跳过添加到集合
             if (localPath === '') {
-              console.log(`远程路径是基础路径本身，跳过添加到remotePathSet: ${remoteFile.path}`);
+              this.logger.info(`远程路径是基础路径本身，跳过添加到remotePathSet: ${remoteFile.path}`);
               continue; // 跳过此文件夹
             } else {
-              console.log(`远程文件夹路径映射到本地路径: ${remoteFile.path} -> ${localPath}`);
+              this.logger.info(`远程文件夹路径映射到本地路径: ${remoteFile.path} -> ${localPath}`);
               remotePathSet.add(localPath);
             }
           }
@@ -275,16 +276,16 @@ export class BidirectionalSync extends SyncStrategyBase {
         for (const folder of localFolders) {
           if (!remotePathSet.has(folder.path) && !this.isSystemOrUnrelatedFolder(folder.path)) {
             localFoldersToDelete.add(folder.path);
-            console.log(`标记本地多余文件夹: ${folder.path}`);
+            this.logger.info(`标记本地多余文件夹: ${folder.path}`);
           }
         }
         
         // 输出调试信息
-        console.log(`找到 ${localFoldersToDelete.size} 个需要删除的本地多余文件夹`);
+        this.logger.info(`找到 ${localFoldersToDelete.size} 个需要删除的本地多余文件夹`);
         if (localFoldersToDelete.size > 0) {
-          console.log('需要删除的本地多余文件夹列表:');
+          this.logger.info('需要删除的本地多余文件夹列表:');
           for (const path of localFoldersToDelete) {
-            console.log(`- ${path}`);
+            this.logger.info(`- ${path}`);
           }
         }
       }
@@ -292,14 +293,14 @@ export class BidirectionalSync extends SyncStrategyBase {
       // 传递localFoldersToDelete参数给syncLocalFoldersToRemote方法
       await this.syncLocalFoldersToRemote(provider, localFiles, providerType, basePath, localFolders, localFoldersToDelete);
     } else {
-      console.log('没有找到本地文件夹，跳过文件夹同步');
+      this.logger.info('没有找到本地文件夹，跳过文件夹同步');
     }
     
-    console.log('===== 同步阶段2：处理文件的双向同步 =====');
+    this.logger.info('===== 同步阶段2：处理文件的双向同步 =====');
     // 执行普通文件的双向同步
     await this.syncBidirectional(provider, localFiles, remoteFiles, providerType, localPathSet);
     
-    console.log('============= 双向增量同步完成 =============');
+    this.logger.info('============= 双向增量同步完成 =============');  
   }
   
   /**
@@ -316,16 +317,16 @@ export class BidirectionalSync extends SyncStrategyBase {
     remoteFiles: FileInfo[],
     providerType: StorageProviderType
   ): Promise<void> {
-    console.log('执行全量同步（双向）');
+    this.logger.info('执行全量同步（双向）');  
     
     // 获取远程根路径
     const basePath = SyncPathUtils.getRemoteBasePath(this.plugin.settings, providerType);
-    console.log(`使用远程基础路径: ${basePath || '/'}`);
+    this.logger.info(`使用远程基础路径: ${basePath || '/'}`);
     
     // 确保远程基础路径存在
     const basePathExists = await this.ensureRemoteBasePath(provider, providerType);
     if (!basePathExists) {
-      console.warn('无法确保远程基础路径存在，同步操作可能不完整');
+      this.logger.warning('无法确保远程基础路径存在，同步操作可能不完整');
       // 继续执行，但已发出警告
     }
     
@@ -349,7 +350,7 @@ export class BidirectionalSync extends SyncStrategyBase {
     providerType: StorageProviderType,
     localPathSet?: Set<string>
   ) {
-    console.log('执行双向同步');
+    this.logger.info('执行双向同步');  
     
     // 获取远程根路径
     const basePath = SyncPathUtils.getRemoteBasePath(this.plugin.settings, providerType);
@@ -362,11 +363,11 @@ export class BidirectionalSync extends SyncStrategyBase {
     // 如果已有localPathSet则使用，否则创建新的
     if (!localPathSet) {
       localPathSet = new Set<string>();
-      console.log('创建新的本地路径集合...');
+      this.logger.info('创建新的本地路径集合...'); 
       for (const file of localFiles) {
         // 过滤不相关的文件夹，避免同步
         if (file.isFolder && this.isSystemOrUnrelatedFolder(file.path)) {
-          console.log(`跳过系统或不相关文件夹: ${file.path}`);
+          this.logger.info(`跳过系统或不相关文件夹: ${file.path}`);  
           continue;
         }
         
@@ -378,7 +379,7 @@ export class BidirectionalSync extends SyncStrategyBase {
         }
       }
     } else {
-      console.log('使用现有的本地路径集合，包含 ' + localPathSet.size + ' 个路径');
+      this.logger.info('使用现有的本地路径集合，包含 ' + localPathSet.size + ' 个路径');
     }
     
     const remoteFolders = new Set<string>();
@@ -394,7 +395,7 @@ export class BidirectionalSync extends SyncStrategyBase {
     
     // 如果启用了删除本地多余文件，先标记哪些本地文件是多余的
     if (this.plugin.settings.deleteLocalExtraFiles) {
-      console.log('预处理：标记需要删除的本地多余文件和文件夹...');
+      this.logger.info('预处理：标记需要删除的本地多余文件和文件夹...');
       
       // 统计所有远程文件路径
       const remotePathSet = new Set<string>();
@@ -403,10 +404,10 @@ export class BidirectionalSync extends SyncStrategyBase {
         let localPath = SyncPathUtils.mapRemotePathToLocal(file.path, basePath);
         // 如果是空路径（基础路径本身），跳过添加到集合
         if (localPath === '') {
-          console.log(`远程路径是基础路径本身，跳过添加到remotePathSet: ${file.path}`);
+          this.logger.info(`远程路径是基础路径本身，跳过添加到remotePathSet: ${file.path}`);
           continue; // 跳过此文件
         } else {
-          console.log(`远程路径映射到本地路径: ${file.path} -> ${localPath}`);
+          this.logger.info(`远程路径映射到本地路径: ${file.path} -> ${localPath}`);
           remotePathSet.add(localPath);
         }
       }
@@ -415,7 +416,7 @@ export class BidirectionalSync extends SyncStrategyBase {
       for (const [localPath, localFile] of localFilesMap.entries()) {
         if (!localFile.isFolder && !remotePathSet.has(localFile.path)) {
           localFilesToDelete.add(localFile.path);
-          console.log(`标记本地多余文件: ${localFile.path}`);
+          this.logger.info(`标记本地多余文件: ${localFile.path}`);
         }
       }
       
@@ -423,24 +424,24 @@ export class BidirectionalSync extends SyncStrategyBase {
       for (const [localPath, localFile] of localFilesMap.entries()) {
         if (localFile.isFolder && !remotePathSet.has(localFile.path)) {
           localFoldersToDelete.add(localFile.path);
-          console.log(`标记本地多余文件夹: ${localFile.path}`);
+          this.logger.info(`标记本地多余文件夹: ${localFile.path}`);
         }
       }
       
       // 输出调试信息
-      console.log(`找到 ${localFilesToDelete.size} 个需要删除的本地多余文件`);
+      this.logger.info(`找到 ${localFilesToDelete.size} 个需要删除的本地多余文件`);
       if (localFilesToDelete.size > 0) {
-        console.log('需要删除的本地多余文件列表:');
+        this.logger.info('需要删除的本地多余文件列表:');
         for (const path of localFilesToDelete) {
-          console.log(`- ${path}`);
+          this.logger.info(`- ${path}`);
         }
       }
       
-      console.log(`找到 ${localFoldersToDelete.size} 个需要删除的本地多余文件夹`);
+      this.logger.info(`找到 ${localFoldersToDelete.size} 个需要删除的本地多余文件夹`);
       if (localFoldersToDelete.size > 0) {
-        console.log('需要删除的本地多余文件夹列表:');
+        this.logger.info('需要删除的本地多余文件夹列表:');
         for (const path of localFoldersToDelete) {
-          console.log(`- ${path}`);
+          this.logger.info(`- ${path}`);
         }
       }
     }
@@ -452,7 +453,7 @@ export class BidirectionalSync extends SyncStrategyBase {
         
         // 检查文件夹是否属于指定的同步基础路径
         if (basePath && !this.isPathUnderBasePath(file.path, basePath)) {
-          console.log(`跳过不在同步基础路径下的远程文件夹: ${file.path}`);
+          this.logger.info(`跳过不在同步基础路径下的远程文件夹: ${file.path}`);
           continue;
         }
         
@@ -460,10 +461,10 @@ export class BidirectionalSync extends SyncStrategyBase {
         let localPath = SyncPathUtils.mapRemotePathToLocal(file.path, basePath);
         // 如果是空路径（基础路径本身），则跳过创建
         if (localPath === '') {
-          console.log(`远程路径是基础路径本身，跳过创建本地文件夹: ${file.path}`);
+          this.logger.info(`远程路径是基础路径本身，跳过创建本地文件夹: ${file.path}`);
           continue; // 跳过此文件夹
         } else {
-          console.log(`远程路径映射到本地路径: ${file.path} -> ${localPath}`);
+          this.logger.info(`远程路径映射到本地路径: ${file.path} -> ${localPath}`);
         }
         
         // 检查此文件夹是否是多余文件夹（即本地没有对应的文件夹）
@@ -484,7 +485,7 @@ export class BidirectionalSync extends SyncStrategyBase {
         
         // 如果是多余文件夹且启用了删除远程多余文件，跳过在本地创建
         if (isExtraFolder && this.plugin.settings.deleteRemoteExtraFiles) {
-          console.log(`远程文件夹被判定为多余，跳过在本地创建: ${file.path}`);
+          this.logger.info(`远程文件夹被判定为多余，跳过在本地创建: ${file.path}`);
           continue;
         }
         
@@ -492,29 +493,29 @@ export class BidirectionalSync extends SyncStrategyBase {
           // 检查本地是否存在该文件夹
           const exists = await this.plugin.app.vault.adapter.exists(localPath);
           if (!exists) {
-            console.log(`创建本地文件夹: ${localPath}`);
+            this.logger.info(`创建本地文件夹: ${localPath}`);
             
             // 确保父文件夹存在
             const parentPath = localPath.split('/').slice(0, -1).join('/');
             if (parentPath && parentPath !== localPath) {
-              console.log(`确保父文件夹存在: ${parentPath}`);
+              this.logger.info(`确保父文件夹存在: ${parentPath}`);
               try {
                 const parentExists = await this.plugin.app.vault.adapter.exists(parentPath);
                 if (!parentExists) {
-                  console.log(`创建父文件夹: ${parentPath}`);
+                  this.logger.info(`创建父文件夹: ${parentPath}`);
                   await this.plugin.app.vault.adapter.mkdir(parentPath);
                 }
               } catch (parentError) {
-                console.error(`创建父文件夹失败: ${parentPath}`, parentError);
+                this.logger.error(`创建父文件夹失败: ${parentPath}`, parentError);
               }
             }
             
             await this.plugin.app.vault.adapter.mkdir(localPath);
           } else {
-            console.log(`本地文件夹已存在: ${localPath}`);
+            this.logger.info(`本地文件夹已存在: ${localPath}`);
           }
         } catch (error) {
-          console.error(`创建本地文件夹失败: ${localPath}`, error);
+          this.logger.error(`创建本地文件夹失败: ${localPath}`, error);
         }
       }
     }
@@ -527,7 +528,7 @@ export class BidirectionalSync extends SyncStrategyBase {
       // 如果文件被标记为需要删除，跳过上传
       // 这避免了将即将被删除的多余文件上传到远程，提高了同步效率并防止无用操作
       if (localFilesToDelete.has(localFile.path)) {
-        console.log(`跳过上传已标记为需删除的本地文件: ${localFile.path}`);
+        this.logger.info(`跳过上传已标记为需删除的本地文件: ${localFile.path}`);
         continue;
       }
       
@@ -536,10 +537,10 @@ export class BidirectionalSync extends SyncStrategyBase {
       if (basePath) {
         // 使用joinPaths确保路径格式正确
         remotePath = SyncPathUtils.joinPaths(basePath, localFile.path);
-        console.log(`构建远程路径: ${basePath} + ${localFile.path} -> ${remotePath}`);
+        this.logger.info(`构建远程路径: ${basePath} + ${localFile.path} -> ${remotePath}`);
       } else {
         remotePath = localFile.path;
-        console.log(`未设置basePath，直接使用本地路径作为远程路径: ${remotePath}`);
+        this.logger.info(`未设置basePath，直接使用本地路径作为远程路径: ${remotePath}`);
       }
       const remoteFile = remoteFilesMap.get(remotePath);
       processedFiles.add(localFile.path);
@@ -560,7 +561,7 @@ export class BidirectionalSync extends SyncStrategyBase {
             switch (this.plugin.settings.conflictPolicy) {
               case 'overwrite':
                 // 总是用本地覆盖远程
-                console.log(`冲突策略：覆盖，上传本地文件: ${localFile.path}`);
+                this.logger.info(`冲突策略：覆盖，上传本地文件: ${localFile.path}`);
                 
                 if (isBinary) {
                   // 二进制文件处理
@@ -573,7 +574,7 @@ export class BidirectionalSync extends SyncStrategyBase {
                   // 特殊处理Markdown文件，转换Obsidian特有的链接格式
                   let processedContent = content;
                   if (localFile.path.toLowerCase().endsWith('.md')) {
-                    console.log(`处理Markdown文件内容: ${localFile.path}`);
+                    this.logger.info(`处理Markdown文件内容: ${localFile.path}`);
                     processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
                   }
                   
@@ -584,7 +585,7 @@ export class BidirectionalSync extends SyncStrategyBase {
               case 'keepLocal':
                 // 保留本地文件，上传到远程
                 if (localMtime > remoteMtime) {
-                  console.log(`冲突策略：保留本地，上传更新的文件: ${localFile.path}`);
+                  this.logger.info(`冲突策略：保留本地，上传更新的文件: ${localFile.path}`);
                   
                   if (isBinary) {
                     // 二进制文件处理
@@ -597,31 +598,31 @@ export class BidirectionalSync extends SyncStrategyBase {
                     // 特殊处理Markdown文件，转换Obsidian特有的链接格式
                     let processedContent = content;
                     if (localFile.path.toLowerCase().endsWith('.md')) {
-                      console.log(`处理Markdown文件内容: ${localFile.path}`);
+                      this.logger.info(`处理Markdown文件内容: ${localFile.path}`); 
                       processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
                     }
                     
                     await this.handleUpload(provider, processedContent, remotePath, localFile.path);
                   }
                 } else {
-                  console.log(`冲突策略：保留本地，忽略远程文件: ${remoteFile.path}`);
+                  this.logger.info(`冲突策略：保留本地，忽略远程文件: ${remoteFile.path}`);
                 }
                 break;
                 
               case 'keepRemote':
                 // 保留远程文件，下载到本地
                 if (remoteMtime > localMtime) {
-                  console.log(`冲突策略：保留远程，下载更新的文件: ${remoteFile.path}`);
+                  this.logger.info(`冲突策略：保留远程，下载更新的文件: ${remoteFile.path}`);
                   await this.handleDownload(provider, remoteFile.path, localFile.path);
                 } else {
-                  console.log(`冲突策略：保留远程，忽略本地文件: ${localFile.path}`);
+                  this.logger.info(`冲突策略：保留远程，忽略本地文件: ${localFile.path}`);
                 }
                 break;
                 
               case 'merge':
                 // 目前无法真正合并文件内容，使用最新的文件
                 if (localMtime > remoteMtime) {
-                  console.log(`冲突策略：合并（使用最新），上传更新的文件: ${localFile.path}`);
+                  this.logger.info(`冲突策略：合并（使用最新），上传更新的文件: ${localFile.path}`);
                   
                   if (isBinary) {
                     // 二进制文件处理
@@ -634,30 +635,30 @@ export class BidirectionalSync extends SyncStrategyBase {
                     // 特殊处理Markdown文件，转换Obsidian特有的链接格式
                     let processedContent = content;
                     if (localFile.path.toLowerCase().endsWith('.md')) {
-                      console.log(`处理Markdown文件内容: ${localFile.path}`);
+                      this.logger.info(`处理Markdown文件内容: ${localFile.path}`);
                       processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
                     }
                     
                     await this.handleUpload(provider, processedContent, remotePath, localFile.path);
                   }
                 } else {
-                  console.log(`冲突策略：合并（使用最新），下载更新的文件: ${remoteFile.path}`);
+                  this.logger.info(`冲突策略：合并（使用最新），下载更新的文件: ${remoteFile.path}`);
                   await this.handleDownload(provider, remoteFile.path, localFile.path);
                 }
                 break;
             }
           } else {
             // 文件相同，无需同步
-            console.log(`文件相同，无需同步: ${localFile.path}`);
+            this.logger.info(`文件相同，无需同步: ${localFile.path}`);
           }
         } else {
           // 文件只在本地存在，上传到远程
-          console.log(`本地独有文件，上传到远程: ${localFile.path}`);
+          this.logger.info(`本地独有文件，上传到远程: ${localFile.path}`);
           
           // 确保远程目录存在
           const remoteDir = remotePath.split('/').slice(0, -1).join('/');
           if (remoteDir && !await provider.folderExists(remoteDir)) {
-            console.log(`创建远程目录: ${remoteDir}`);
+            this.logger.info(`创建远程目录: ${remoteDir}`);  
             await provider.createFolder(remoteDir);
           }
           
@@ -672,7 +673,7 @@ export class BidirectionalSync extends SyncStrategyBase {
             // 特殊处理Markdown文件，转换Obsidian特有的链接格式
             let processedContent = content;
             if (localFile.path.toLowerCase().endsWith('.md')) {
-              console.log(`处理Markdown文件内容: ${localFile.path}`);
+                  this.logger.info(`处理Markdown文件内容: ${localFile.path}`);
               processedContent = processMarkdownContent(content, '', providerType.toLowerCase());
             }
             
@@ -680,7 +681,7 @@ export class BidirectionalSync extends SyncStrategyBase {
           }
         }
       } catch (error) {
-        console.error(`同步文件失败: ${localFile.path}`, error);
+        this.logger.error(`同步文件失败: ${localFile.path}`, error);
       }
     }
     
@@ -690,7 +691,7 @@ export class BidirectionalSync extends SyncStrategyBase {
       
       // 检查文件是否在同步路径下，如果不在则跳过
       if (basePath && !this.isPathUnderBasePath(remoteFile.path, basePath)) {
-        console.log(`跳过不在同步基础路径下的远程文件: ${remoteFile.path}`);
+        this.logger.info(`跳过不在同步基础路径下的远程文件: ${remoteFile.path}`);
         continue;
       }
       
@@ -712,26 +713,26 @@ export class BidirectionalSync extends SyncStrategyBase {
       
       // 如果是多余文件，跳过下载
       if (isExtraFile && this.plugin.settings.deleteRemoteExtraFiles) {
-        console.log(`远程文件被判定为多余，跳过下载: ${remoteFile.path}`);
+        this.logger.info(`远程文件被判定为多余，跳过下载: ${remoteFile.path}`);
         continue;
       }
       
       // 使用新的路径映射方法来正确处理远程路径
       let localPath = SyncPathUtils.mapRemotePathToLocal(remoteFile.path, basePath);
-      console.log(`远程路径映射到本地: ${remoteFile.path} -> ${localPath || '(空路径)'}`);
+      this.logger.info(`远程路径映射到本地: ${remoteFile.path} -> ${localPath || '(空路径)'}`);
       // 如果返回空字符串（表示是基础路径本身但它是一个文件），这种情况很少见，但为安全起见处理它
       if (localPath === '') {
-        console.log(`远程路径映射为空，使用文件名作为本地路径: ${remoteFile.name}`);
+          this.logger.info(`远程路径映射为空，使用文件名作为本地路径: ${remoteFile.name}`);
         localPath = remoteFile.name;
       }
       
       if (processedFiles.has(localPath)) continue;
       
       try {
-        console.log(`远程独有文件，下载到本地: ${remoteFile.path} -> ${localPath}`);
+        this.logger.info(`远程独有文件，下载到本地: ${remoteFile.path} -> ${localPath}`);
         await this.handleDownload(provider, remoteFile.path, localPath);
       } catch (error) {
-        console.error(`下载远程文件失败: ${remoteFile.path} -> ${localPath}`, error);
+        this.logger.error(`下载远程文件失败: ${remoteFile.path} -> ${localPath}`, error);
       }
     }
     
@@ -761,14 +762,14 @@ export class BidirectionalSync extends SyncStrategyBase {
   ) {
     // 如果启用了删除远程多余文件，删除本地不存在但远程存在的文件和文件夹
     if (this.plugin.settings.deleteRemoteExtraFiles) {
-      console.log('检查并删除远程多余文件和文件夹...');
+      this.logger.info('检查并删除远程多余文件和文件夹...');
       
       // 先删除远程多余文件
       for (const [remotePath, remoteFile] of remoteFilesMap.entries()) {
         if (!remoteFile.isFolder) {
           // 检查文件是否在同步路径下，如果不在则跳过
           if (basePath && !this.isPathUnderBasePath(remoteFile.path, basePath)) {
-            console.log(`跳过删除不在同步基础路径下的远程文件: ${remoteFile.path}`);
+            this.logger.info(`跳过删除不在同步基础路径下的远程文件: ${remoteFile.path}`);
             continue;
           }
           
@@ -786,24 +787,24 @@ export class BidirectionalSync extends SyncStrategyBase {
             // 比较标准化后的路径
             if (normalizedRemotePath === normalizedLocalPath) {
               shouldDelete = false;
-              console.log(`路径匹配: ${remoteFile.path} 匹配 ${localPath}，跳过删除`);
+              this.logger.info(`路径匹配: ${remoteFile.path} 匹配 ${localPath}，跳过删除`);
               break;
             }
           }
           
           if (shouldDelete) {
             try {
-              console.log(`准备删除远程多余文件: ${remoteFile.path}`);
+              this.logger.info(`准备删除远程多余文件: ${remoteFile.path}`);
               await provider.deleteFile(remoteFile.path);
-              console.log(`删除远程多余文件成功: ${remoteFile.path}`);
+              this.logger.info(`删除远程多余文件成功: ${remoteFile.path}`);
             } catch (error) {
               // 特别处理坚果云
               if (providerType === 'webdav' && provider.getName() === 'WebDAV') {
-                console.warn(`删除坚果云文件失败，但继续处理后续文件: ${remoteFile.path}`, error);
+                this.logger.warning(`删除坚果云文件失败，但继续处理后续文件: ${remoteFile.path}`, error);
                 // 对于坚果云，不中断整个同步过程
                 continue;
               } else {
-                console.error(`删除远程文件失败: ${remoteFile.path}`, error);
+                this.logger.error(`删除远程文件失败: ${remoteFile.path}`, error);
               }
             }
           }
@@ -823,7 +824,7 @@ export class BidirectionalSync extends SyncStrategyBase {
       for (const remoteFolder of remoteFoldersList) {
         // 检查文件夹是否在同步路径下，如果不在则跳过
         if (basePath && !this.isPathUnderBasePath(remoteFolder, basePath)) {
-          console.log(`跳过删除不在同步基础路径下的远程文件夹: ${remoteFolder}`);
+          this.logger.info(`跳过删除不在同步基础路径下的远程文件夹: ${remoteFolder}`);
           continue;
         }
         
@@ -835,13 +836,13 @@ export class BidirectionalSync extends SyncStrategyBase {
           
           // 检查是否为基础同步路径（考虑多种可能的格式）
           if (normalizedBasePath === normalizedRemoteFolder) {
-            console.log(`跳过删除基础同步路径: ${remoteFolder} (标准化后: ${normalizedRemoteFolder}, basePath: ${basePath})`);
+            this.logger.info(`跳过删除基础同步路径: ${remoteFolder} (标准化后: ${normalizedRemoteFolder}, basePath: ${basePath})`);
             continue;
           }
           
           // 额外检查：如果基础路径本身可能是TEST，但remoteFolder是/TEST/
           if (remoteFolder === `/${normalizedBasePath}/` || remoteFolder === `/${normalizedBasePath}`) {
-            console.log(`跳过删除基础同步路径(格式不同): ${remoteFolder}`);
+            this.logger.info(`跳过删除基础同步路径(格式不同): ${remoteFolder}`);
             continue;
           }
         }
@@ -860,24 +861,24 @@ export class BidirectionalSync extends SyncStrategyBase {
           // 比较标准化后的路径
           if (normalizedRemotePath === normalizedLocalPath) {
             shouldDelete = false;
-            console.log(`路径匹配: ${remoteFolder} 匹配 ${localPath}，跳过删除`);
+            this.logger.info(`路径匹配: ${remoteFolder} 匹配 ${localPath}，跳过删除`);
             break;
           }
         }
         
         if (shouldDelete) {
           try {
-            console.log(`准备删除远程多余文件夹: ${remoteFolder}`);
+            this.logger.info(`准备删除远程多余文件夹: ${remoteFolder}`);
             await provider.deleteFolder(remoteFolder);
-            console.log(`删除远程多余文件夹成功: ${remoteFolder}`);
+            this.logger.info(`删除远程多余文件夹成功: ${remoteFolder}`);
           } catch (error) {
             // 特别处理坚果云
             if (providerType === 'webdav' && provider.getName() === 'WebDAV') {
-              console.warn(`删除坚果云文件夹失败，但继续处理后续文件: ${remoteFolder}`, error);
+              this.logger.warning(`删除坚果云文件夹失败，但继续处理后续文件: ${remoteFolder}`, error);
               // 对于坚果云，不中断整个同步过程
               continue;
             } else {
-              console.error(`删除远程文件夹失败: ${remoteFolder}`, error);
+              this.logger.error(`删除远程文件夹失败: ${remoteFolder}`, error);
               // 对于非坚果云，继续处理下一个文件夹
             }
           }
@@ -887,7 +888,7 @@ export class BidirectionalSync extends SyncStrategyBase {
     
     // 如果启用了删除本地多余文件，删除远程不存在但本地存在的文件
     if (this.plugin.settings.deleteLocalExtraFiles) {
-      console.log('检查并删除本地多余文件和文件夹...');
+      this.logger.info('检查并删除本地多余文件和文件夹...');
       
       // 注意: 尽管在syncBidirectional方法中已经预先标记了一些本地多余文件以跳过上传，
       // 这里仍需要再次计算以确保全面识别所有需要删除的文件，并执行实际的删除操作
@@ -899,10 +900,10 @@ export class BidirectionalSync extends SyncStrategyBase {
         let localPath = SyncPathUtils.mapRemotePathToLocal(file.path, basePath);
         // 如果是空路径（基础路径本身），跳过添加到集合
         if (localPath === '') {
-          console.log(`远程路径是基础路径本身，跳过添加到remotePathSet: ${file.path}`);
+          this.logger.info(`远程路径是基础路径本身，跳过添加到remotePathSet: ${file.path}`);
           continue; // 跳过此文件
         } else {
-          console.log(`远程路径映射到本地路径: ${file.path} -> ${localPath}`);
+          this.logger.info(`远程路径映射到本地路径: ${file.path} -> ${localPath}`);
           remotePathSet.add(localPath);
         }
       }
@@ -911,11 +912,11 @@ export class BidirectionalSync extends SyncStrategyBase {
       for (const [localPath, localFile] of localFilesMap.entries()) {
         if (!localFile.isFolder && !remotePathSet.has(localFile.path)) {
           try {
-            console.log(`准备删除本地多余文件: ${localFile.path}`);
+            this.logger.info(`准备删除本地多余文件: ${localFile.path}`);
             await this.plugin.app.vault.adapter.remove(localFile.path);
-            console.log(`删除本地多余文件成功: ${localFile.path}`);
+            this.logger.info(`删除本地多余文件成功: ${localFile.path}`);
           } catch (error) {
-            console.error(`删除本地文件失败: ${localFile.path}`, error);
+            this.logger.error(`删除本地文件失败: ${localFile.path}`, error);
           }
         }
       }
@@ -937,19 +938,19 @@ export class BidirectionalSync extends SyncStrategyBase {
             // 检查文件夹是否为空
             const folderContents = await this.plugin.app.vault.adapter.list(localFolder.path);
             if (folderContents.files.length === 0 && folderContents.folders.length === 0) {
-              console.log(`准备删除本地空文件夹: ${localFolder.path}`);
+              this.logger.info(`准备删除本地空文件夹: ${localFolder.path}`);
               await this.plugin.app.vault.adapter.rmdir(localFolder.path, true);
-              console.log(`删除本地空文件夹成功: ${localFolder.path}`);
+              this.logger.info(`删除本地空文件夹成功: ${localFolder.path}`);
             } else {
-              console.log(`本地文件夹不为空，跳过删除: ${localFolder.path}`);
+              this.logger.info(`本地文件夹不为空，跳过删除: ${localFolder.path}`);
             }
           } catch (error) {
-            console.error(`删除本地文件夹失败: ${localFolder.path}`, error);
+            this.logger.error(`删除本地文件夹失败: ${localFolder.path}`, error);
           }
         }
       }
       
-      console.log('本地多余文件和文件夹清理完成');
+      this.logger.info('本地多余文件和文件夹清理完成');
     }
   }
 
@@ -976,7 +977,7 @@ export class BidirectionalSync extends SyncStrategyBase {
     const allFolders = foldersList || localFiles.filter(item => item.isFolder);
     
     if (allFolders.length === 0) {
-      console.log('没有检测到本地文件夹，跳过文件夹同步');
+      this.logger.info('没有检测到本地文件夹，跳过文件夹同步');
       return;
     }
     
@@ -989,7 +990,7 @@ export class BidirectionalSync extends SyncStrategyBase {
       
       // 如果提供了待删除文件夹集合，过滤掉那些标记为将被删除的文件夹
       if (localFoldersToDelete && localFoldersToDelete.has(folder.path)) {
-        console.log(`跳过标记为将被删除的文件夹: ${folder.path}`);
+        this.logger.info(`跳过标记为将被删除的文件夹: ${folder.path}`);
         return false;
       }
       
@@ -997,11 +998,11 @@ export class BidirectionalSync extends SyncStrategyBase {
     });
     
     if (folders.length === 0) {
-      console.log('过滤后没有需要同步的本地文件夹，跳过文件夹同步');
+      this.logger.info('过滤后没有需要同步的本地文件夹，跳过文件夹同步');
       return;
     }
     
-    console.log(`准备同步 ${folders.length} 个本地文件夹到远程，基础路径: ${basePath || '/'}`);
+    this.logger.info(`准备同步 ${folders.length} 个本地文件夹到远程，基础路径: ${basePath || '/'}`);
     
     // 排序文件夹，确保父文件夹在子文件夹之前处理
     folders.sort((a, b) => {
@@ -1012,9 +1013,9 @@ export class BidirectionalSync extends SyncStrategyBase {
     });
     
     // 打印所有要同步的文件夹
-    console.log("待同步的本地文件夹列表（按深度排序）:");
+    this.logger.info("待同步的本地文件夹列表（按深度排序）:");
     for (const folder of folders) {
-      console.log(`- ${folder.path}`);
+      this.logger.info(`- ${folder.path}`);
     }
     
     // 使用Set记录已处理过的路径
@@ -1040,22 +1041,22 @@ export class BidirectionalSync extends SyncStrategyBase {
       try {
         // 构建远程路径
         const remotePath = basePath ? `${basePath}/${folder.path}` : folder.path;
-        console.log(`处理文件夹: 本地=${folder.path}, 远程=${remotePath}`);
+        this.logger.info(`处理文件夹: 本地=${folder.path}, 远程=${remotePath}`);
         
         // 如果是空字符串或根目录，跳过
         if (!folder.path || folder.path === '/') {
-          console.log(`跳过根目录或空路径: ${folder.path}`);
+          this.logger.info(`跳过根目录或空路径: ${folder.path}`);
           continue;
         }
         
         // 如果此路径已处理过或达到最大处理数量，跳过
         if (processedPaths.has(remotePath)) {
-          console.log(`跳过处理: ${remotePath} (已处理过)`);
+          this.logger.info(`跳过处理: ${remotePath} (已处理过)`);
           continue;
         }
         
         if (foldersProcessed >= MAX_FOLDERS) {
-          console.warn(`达到最大处理文件夹数量 ${MAX_FOLDERS}，停止处理后续文件夹`);
+          this.logger.warning(`达到最大处理文件夹数量 ${MAX_FOLDERS}，停止处理后续文件夹`);
           break;
         }
         
@@ -1064,7 +1065,7 @@ export class BidirectionalSync extends SyncStrategyBase {
         
         // 检查是否已经处理过这个文件夹（避免重复处理）
         if (createdFolders.has(remotePath)) {
-          console.log(`文件夹已在当前同步周期中处理过: ${remotePath}`);
+          this.logger.info(`文件夹已在当前同步周期中处理过: ${remotePath}`);
           continue;
         }
         
@@ -1072,14 +1073,14 @@ export class BidirectionalSync extends SyncStrategyBase {
         let exists = false;
         try {
           exists = await provider.folderExists(remotePath);
-          console.log(`远程文件夹存在检查: ${exists ? '已存在' : '不存在'}`);
+          this.logger.info(`远程文件夹存在检查: ${exists ? '已存在' : '不存在'}`);
         } catch (existsError) {
-          console.error(`检查远程文件夹${remotePath}是否存在时出错:`, existsError);
+          this.logger.error(`检查远程文件夹${remotePath}是否存在时出错:`, existsError);
           exists = false;
         }
         
         if (!exists) {
-          console.log(`创建远程文件夹: ${remotePath}`);
+          this.logger.info(`创建远程文件夹: ${remotePath}`);
           
           // 确保父文件夹存在
           const parentPath = folder.path.split('/').slice(0, -1).join('/');
@@ -1087,22 +1088,22 @@ export class BidirectionalSync extends SyncStrategyBase {
           
           // 如果有父路径且不是根路径
           if (parentPath && parentPath !== folder.path) {
-            console.log(`确保父目录存在: ${parentPath} -> ${remoteParentPath}`);
+            this.logger.info(`确保父目录存在: ${parentPath} -> ${remoteParentPath}`);
             
             // 检查父文件夹是否存在
             let parentExists = false;
             try {
               parentExists = await provider.folderExists(remoteParentPath);
-              console.log(`父文件夹存在检查: ${parentExists ? '已存在' : '不存在'}`);
+              this.logger.info(`父文件夹存在检查: ${parentExists ? '已存在' : '不存在'}`);
               
               // 如果父文件夹不存在，先创建父文件夹
               if (!parentExists && !createdFolders.has(remoteParentPath)) {
                 try {
                   await provider.createFolder(remoteParentPath);
-                  console.log(`父文件夹创建成功: ${remoteParentPath}`);
+                  this.logger.info(`父文件夹创建成功: ${remoteParentPath}`);
                   createdFolders.add(remoteParentPath);
                 } catch (parentCreateError) {
-                  console.error(`创建父文件夹失败: ${remoteParentPath}`, parentCreateError);
+                  this.logger.error(`创建父文件夹失败: ${remoteParentPath}`, parentCreateError);
                   
                   // 如果父文件夹创建失败，将当前文件夹添加到失败列表，稍后重试
                   failedFolders.push(folder);
@@ -1111,18 +1112,18 @@ export class BidirectionalSync extends SyncStrategyBase {
                 }
               }
             } catch (parentExistsError) {
-              console.error(`检查父文件夹${remoteParentPath}是否存在时出错:`, parentExistsError);
+              this.logger.error(`检查父文件夹${remoteParentPath}是否存在时出错:`, parentExistsError);
             }
           }
           
           try {
             await provider.createFolder(remotePath);
-            console.log(`远程文件夹创建成功: ${remotePath}`);
+            this.logger.info(`远程文件夹创建成功: ${remotePath}`);
             successCount++;
             createdFolders.add(remotePath);
           } catch (createError) {
             errorCount++;
-            console.error(`创建远程文件夹失败: ${remotePath}`, createError);
+            this.logger.error(`创建远程文件夹失败: ${remotePath}`, createError);
             
             // 将失败的文件夹添加到重试列表
             failedFolders.push(folder);
@@ -1132,7 +1133,7 @@ export class BidirectionalSync extends SyncStrategyBase {
                (createError.code === 'AUTH_FAILED' || 
                 createError.status === 401 || 
                 createError.status === 403)) {
-              console.warn(`坚果云创建文件夹失败，尝试替代方法: ${remotePath}`);
+              this.logger.warning(`坚果云创建文件夹失败，尝试替代方法: ${remotePath}`);
               
               // 尝试通过上传空文件来隐式创建目录
               try {
@@ -1140,7 +1141,7 @@ export class BidirectionalSync extends SyncStrategyBase {
                 const dummyFilePath = remotePath + '/.folder';
                 const content = '';
                 await provider.uploadFile(dummyFilePath, content);
-                console.log(`通过创建空文件的方式创建了文件夹: ${remotePath}`);
+                this.logger.info(`通过创建空文件的方式创建了文件夹: ${remotePath}`);
                 successCount++; // 认为文件夹创建成功
                 errorCount--; // 取消之前的错误计数
                 createdFolders.add(remotePath);
@@ -1151,24 +1152,24 @@ export class BidirectionalSync extends SyncStrategyBase {
                   failedFolders.splice(index, 1);
                 }
               } catch (uploadError) {
-                console.error(`创建标记文件也失败: ${remotePath}`, uploadError);
+                this.logger.error(`创建标记文件也失败: ${remotePath}`, uploadError);
                 // 继续处理下一个文件夹，不中断整个过程
               }
             } else if (createError.status === 409) {
               // 409错误通常意味着父文件夹不存在
-              console.warn(`父目录不存在导致创建失败(409): ${remotePath}`);
+              this.logger.warning(`父目录不存在导致创建失败(409): ${remotePath}`);
               
               // 失败的情况下已将文件夹添加到重试列表
             }
           }
         } else {
-          console.log(`远程文件夹已存在: ${remotePath}`);
+          this.logger.info(`远程文件夹已存在: ${remotePath}`);
           alreadyExistsCount++;
           createdFolders.add(remotePath);
         }
       } catch (error) {
         errorCount++;
-        console.error(`同步文件夹失败: ${folder.path}`, error);
+        this.logger.error(`同步文件夹失败: ${folder.path}`, error);
         
         // 将失败的文件夹添加到重试列表
         failedFolders.push(folder);
@@ -1179,19 +1180,19 @@ export class BidirectionalSync extends SyncStrategyBase {
             error.status === 401 || 
             error.status === 403 || 
             error.status === 405)) {
-          console.warn(`坚果云文件夹处理失败，但继续同步: ${folder.path}`);
+          this.logger.warning(`坚果云文件夹处理失败，但继续同步: ${folder.path}`);
           // 继续处理下一个文件夹
           continue;
         }
         
         // 对于其他错误，也继续处理但记录警告
-        console.warn(`处理文件夹时发生错误: ${folder.path}，但将继续同步`);
+        this.logger.warning(`处理文件夹时发生错误: ${folder.path}，但将继续同步`);
       }
     }
     
     // 重试阶段：处理之前创建失败的文件夹
     if (failedFolders.length > 0) {
-      console.log(`===== 开始重试阶段：有 ${failedFolders.length} 个文件夹创建失败 =====`);
+      this.logger.info(`===== 开始重试阶段：有 ${failedFolders.length} 个文件夹创建失败 =====`);
       
       // 再次排序文件夹，确保父文件夹在子文件夹之前处理
       failedFolders.sort((a, b) => {
@@ -1202,11 +1203,11 @@ export class BidirectionalSync extends SyncStrategyBase {
       
       for (const folder of failedFolders) {
         const remotePath = basePath ? `${basePath}/${folder.path}` : folder.path;
-        console.log(`重试创建文件夹: ${remotePath}`);
+        this.logger.info(`重试创建文件夹: ${remotePath}`);
         
         // 跳过已成功创建的文件夹
         if (createdFolders.has(remotePath)) {
-          console.log(`文件夹已在前一阶段成功创建，跳过: ${remotePath}`);
+          this.logger.info(`文件夹已在前一阶段成功创建，跳过: ${remotePath}`);
           continue;
         }
         
@@ -1214,7 +1215,7 @@ export class BidirectionalSync extends SyncStrategyBase {
           // 再次尝试检查文件夹是否存在
           const exists = await provider.folderExists(remotePath);
           if (exists) {
-            console.log(`重试检查：文件夹已存在，无需创建: ${remotePath}`);
+            this.logger.info(`重试检查：文件夹已存在，无需创建: ${remotePath}`);
             alreadyExistsCount++;
             retryCount++;
             continue;
@@ -1222,25 +1223,25 @@ export class BidirectionalSync extends SyncStrategyBase {
           
           // 再次尝试创建文件夹
           await provider.createFolder(remotePath);
-          console.log(`重试成功：文件夹创建成功: ${remotePath}`);
+          this.logger.info(`重试成功：文件夹创建成功: ${remotePath}`);
           successCount++;
           errorCount--; // 减少之前计入的错误
           retryCount++;
           createdFolders.add(remotePath);
         } catch (retryError) {
-          console.error(`重试创建文件夹失败: ${remotePath}`, retryError);
+          this.logger.error(`重试创建文件夹失败: ${remotePath}`, retryError);
         }
       }
     }
     
-    console.log(`本地文件夹同步到远程完成，结果统计:`);
-    console.log(`- 成功创建: ${successCount} 个文件夹`);
-    console.log(`- 已存在跳过: ${alreadyExistsCount} 个文件夹`);
-    console.log(`- 创建失败: ${errorCount} 个文件夹`);
-    console.log(`- 重试成功: ${retryCount} 个文件夹`);
+    this.logger.info(`本地文件夹同步到远程完成，结果统计:`);
+    this.logger.info(`- 成功创建: ${successCount} 个文件夹`);
+    this.logger.info(`- 已存在跳过: ${alreadyExistsCount} 个文件夹`);
+    this.logger.info(`- 创建失败: ${errorCount} 个文件夹`);
+    this.logger.info(`- 重试成功: ${retryCount} 个文件夹`);
     
     if (errorCount > 0) {
-      console.warn(`警告: ${errorCount} 个文件夹创建失败，请检查日志了解详情`);
+      this.logger.warning(`警告: ${errorCount} 个文件夹创建失败，请检查日志了解详情`);
     }
   }
 

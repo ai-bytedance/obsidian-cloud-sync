@@ -1,6 +1,8 @@
 import { App, RequestUrlParam, requestUrl } from 'obsidian';
 import { StorageProviderError } from '@providers/common/storage-provider';
 import { WebDAVSettings } from '@models/plugin-settings';
+import { ModuleLogger } from '@services/log/log-service';
+import CloudSyncPlugin from '@main';
 
 /**
  * WebDAV客户端类
@@ -10,15 +12,22 @@ import { WebDAVSettings } from '@models/plugin-settings';
 export class WebDAVClient {
   protected config: WebDAVSettings;
   protected app: App;
+  protected logger: ModuleLogger | null = null;
   
   /**
    * 构造函数
    * @param config WebDAV配置
    * @param app Obsidian应用实例
+   * @param plugin 插件实例，用于获取日志服务
    */
-  constructor(config: WebDAVSettings, app: App) {
+  constructor(config: WebDAVSettings, app: App, plugin?: CloudSyncPlugin) {
     this.config = config;
     this.app = app;
+    
+    if (plugin && plugin.logService) {
+      this.logger = plugin.logService.getModuleLogger('WebDAVClient');
+      this.logger.info('WebDAV客户端初始化完成');
+    }
   }
   
   /**
@@ -33,9 +42,10 @@ export class WebDAVClient {
 
       // 使用支持UTF-8的方式编码认证字符串
       const auth = `${username}:${password}`;
+      this.logger?.debug(`正在生成认证头 (用户名: ${username.substring(0, 3)}***)`);
       return `Basic ${this.encodeAuthString(auth)}`;
     } catch (error) {
-      console.error('生成认证头失败:', error);
+      this.logger?.error('生成认证头失败', error);
       throw new Error('用户名或密码包含无法编码的字符');
     }
   }
@@ -50,12 +60,14 @@ export class WebDAVClient {
     try {
       // 方法1: 使用TextEncoder（如果环境支持）
       if (typeof TextEncoder !== 'undefined') {
+        this.logger?.debug('使用TextEncoder编码认证字符串');
         const encoder = new TextEncoder();
         const bytes = encoder.encode(str);
         return btoa(String.fromCharCode.apply(null, Array.from(bytes)));
       }
       
       // 方法2: 使用encodeURIComponent
+      this.logger?.debug('使用encodeURIComponent编码认证字符串');
       return btoa(
         encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, 
           (match, p1) => String.fromCharCode(parseInt(p1, 16))
@@ -63,11 +75,11 @@ export class WebDAVClient {
       );
     } catch (error) {
       // 如果上述方法都失败，尝试直接使用btoa（可能对非ASCII字符失败）
-      console.warn('高级编码方法失败，尝试标准编码', error);
+      this.logger?.warning('高级编码方法失败，尝试标准编码', error);
       try {
         return btoa(str);
       } catch (e) {
-        console.error('所有认证编码方法均失败:', e);
+        this.logger?.error('所有认证编码方法均失败', e);
         throw new Error('用户名或密码包含无法编码的特殊字符');
       }
     }
@@ -87,13 +99,19 @@ export class WebDAVClient {
     
     // 确保URL有效，防止错误匹配
     if (!serverUrl.includes('.') && !serverUrl.includes('localhost')) {
-      console.warn(`isJianGuoYun: URL缺少有效域名: ${serverUrl}, 不会识别为坚果云`);
+      this.logger?.warning(`isJianGuoYun: URL缺少有效域名: ${serverUrl}, 不会识别为坚果云`);
       return false;
     }
     
-    return serverUrl.includes('dav.jianguoyun.com') || 
-           serverUrl.includes('jianguoyun') || 
-           serverUrl.includes('jgy');
+    const isJGY = serverUrl.includes('dav.jianguoyun.com') || 
+                 serverUrl.includes('jianguoyun') || 
+                 serverUrl.includes('jgy');
+                 
+    if (isJGY) {
+      this.logger?.info('检测到坚果云WebDAV服务');
+    }
+    
+    return isJGY;
   }
   
   /**
@@ -103,7 +121,7 @@ export class WebDAVClient {
   getHeaders(): Record<string, string> {
     // 针对坚果云的特殊处理
     if (this.isJianGuoYun()) {
-      console.log('检测到坚果云WebDAV服务，使用特殊配置');
+      this.logger?.info('使用坚果云特殊请求头配置');
       return {
         'Authorization': this.getAuthHeader(),
         'Accept': '*/*',
@@ -112,6 +130,7 @@ export class WebDAVClient {
     }
     
     // 其他WebDAV服务的通用头
+    this.logger?.debug('使用通用WebDAV请求头配置');
     return {
       'Authorization': this.getAuthHeader(),
       'Content-Type': 'application/xml',
@@ -125,6 +144,7 @@ export class WebDAVClient {
    * @returns 格式化后的URL
    */
   formatUrl(url: string): string {
+    const originalUrl = url;
     url = url.trim();
     
     // 确保URL以"/"结尾
@@ -136,6 +156,10 @@ export class WebDAVClient {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       // 默认使用HTTPS协议
       url = 'https://' + url;
+    }
+    
+    if (originalUrl !== url) {
+      this.logger?.debug(`URL格式化: "${originalUrl}" -> "${url}"`);
     }
     
     return url;
@@ -159,6 +183,8 @@ export class WebDAVClient {
     if (error && typeof error === 'object') {
       if ('status' in error) {
         const status = error.status as number;
+        this.logger?.error(`请求错误，HTTP状态码: ${status}`);
+        
         switch (status) {
           case 401:
             errorCode = 'AUTH_FAILED';
@@ -211,21 +237,25 @@ export class WebDAVClient {
         }
         
         // 创建适当的错误消息
+        this.logger?.error(`WebDAV错误: ${errorMessage} (${errorCode})`, error);
         return new StorageProviderError(errorMessage, errorCode, error);
       }
       
       // 处理网络错误
       if ('name' in error && error.name === 'NetworkError') {
+        this.logger?.error('WebDAV网络连接错误', error);
         return new StorageProviderError('网络连接错误，请检查网络连接', 'NETWORK_ERROR', error);
       }
       
       // 处理超时错误
       if ('name' in error && error.name === 'AbortError') {
+        this.logger?.error('WebDAV请求超时', error);
         return new StorageProviderError('请求超时', 'TIMEOUT', error);
       }
     }
     
     // 对于其他类型的错误，使用fromError方法创建标准错误
+    this.logger?.error('WebDAV未分类错误', error);
     return StorageProviderError.fromError(error);
   }
   
@@ -241,13 +271,25 @@ export class WebDAVClient {
         params.headers = this.getHeaders();
       }
       
-      // 注意：RequestUrlParam目前不支持timeout配置，
-      // 如需超时控制，可考虑在应用层实现
+      // 构建日志信息
+      let requestInfo = `${params.method || 'GET'} ${params.url}`;
+      if (params.body && typeof params.body === 'string' && params.body.length < 500) {
+        // 仅在请求体不太大时记录
+        requestInfo += ` 请求体: ${params.body.substring(0, 100)}${params.body.length > 100 ? '...' : ''}`;
+      }
+      
+      this.logger?.info(`发送WebDAV请求: ${requestInfo}`);
       
       // 执行请求
       const response = await requestUrl(params);
+      
+      // 记录响应
+      this.logger?.info(`WebDAV响应: ${params.url} 状态: ${response.status}`);
+      this.logger?.debug(`WebDAV响应头: ${JSON.stringify(response.headers)}`);
+      
       return response;
     } catch (error) {
+      this.logger?.error(`WebDAV请求失败: ${params.url}`, error);
       throw this.handleError(error);
     }
   }

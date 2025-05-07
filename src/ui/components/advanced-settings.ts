@@ -1,6 +1,18 @@
 import { Setting, ButtonComponent } from 'obsidian';
 import { PluginSettings, SyncDirection } from '@models/plugin-settings';
 import CloudSyncPlugin from '@main';
+import { ModuleLogger } from '@services/log/log-service';
+
+// 模块级别的日志记录器
+let logger: ModuleLogger | null = null;
+
+/**
+ * 配置模块日志记录器
+ * @param moduleLogger 日志记录器实例
+ */
+export function configureAdvancedSettingsLogger(moduleLogger: ModuleLogger): void {
+  logger = moduleLogger;
+}
 
 /**
  * 创建高级设置部分
@@ -16,6 +28,11 @@ export function createAdvancedSection(
   tempSettings: PluginSettings,
   displayFunc: () => Promise<void>
 ): void {
+  // 初始化日志记录器，如果尚未初始化
+  if (!logger && plugin.logService) {
+    logger = plugin.logService.getModuleLogger('AdvancedSettings');
+  }
+  
   const advancedSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
   
   advancedSection.createEl('h3', { text: '高级设置' });
@@ -218,19 +235,19 @@ export function createAdvancedSection(
       
       // 手动检查当前选择的值并设置
       const currentSyncMode = tempSettings.syncMode;
-      console.log('设置同步模式下拉框，当前值:', currentSyncMode);
+      logger?.debug('设置同步模式下拉框，当前值:', { value: currentSyncMode });
       
       if (currentSyncMode && (currentSyncMode === 'incremental' || currentSyncMode === 'full')) {
         dropdown.setValue(currentSyncMode);
       } else {
-        console.log('同步模式值无效，设置为默认值: incremental');
+        logger?.info('同步模式值无效，设置为默认值: incremental');
         dropdown.setValue('incremental');
         tempSettings.syncMode = 'incremental';
       }
       
       // 处理值变化
       dropdown.onChange(async (value: any) => {
-        console.log('同步模式变更为:', value);
+        logger?.debug('同步模式变更为:', { value });
         tempSettings.syncMode = value;
         await plugin.saveSettings(tempSettings);
       });
@@ -250,7 +267,7 @@ export function createAdvancedSection(
       
       // 手动检查当前选择的值并设置
       const currentSyncDirection = tempSettings.syncDirection;
-      console.log('设置同步方向下拉框，当前值:', currentSyncDirection);
+      logger?.debug('设置同步方向下拉框，当前值:', { value: currentSyncDirection });
       
       if (currentSyncDirection && 
          (currentSyncDirection === 'bidirectional' || 
@@ -258,14 +275,14 @@ export function createAdvancedSection(
           currentSyncDirection === 'downloadOnly')) {
         dropdown.setValue(currentSyncDirection);
       } else {
-        console.log('同步方向值无效，设置为默认值: bidirectional');
+        logger?.info('同步方向值无效，设置为默认值: bidirectional');
         dropdown.setValue('bidirectional');
         tempSettings.syncDirection = 'bidirectional';
       }
       
       // 处理值变化
       dropdown.onChange(async (value) => {
-        console.log('同步方向变更为:', value);
+        logger?.debug('同步方向变更为:', { value });
         tempSettings.syncDirection = value as SyncDirection;
         await plugin.saveSettings(tempSettings);
       });
@@ -340,10 +357,10 @@ export function createAdvancedSection(
         // 根据调试模式状态启用或禁用控制台拦截
         if (value) {
           plugin.logService?.interceptConsole();
-          plugin.logService?.info('已启用控制台拦截（调试模式）');
+          logger?.info('已启用控制台拦截（调试模式）');
         } else {
           plugin.logService?.restoreConsole();
-          plugin.logService?.info('已禁用控制台拦截（调试模式关闭）');
+          logger?.info('已禁用控制台拦截（调试模式关闭）');
         }
         
         await displayFunc(); // 刷新界面以显示/隐藏日志级别设置
@@ -382,18 +399,18 @@ export function createAdvancedSection(
           const logLevel = tempSettings.logLevel;
           
           // 在导出前记录各种级别的测试日志，确保有内容可见
-          plugin.logService.debug('【测试】这是一条调试级别的日志消息');
-          plugin.logService.info('【测试】这是一条信息级别的日志消息');
-          plugin.logService.warning('【测试】这是一条警告级别的日志消息');
-          plugin.logService.error('【测试】这是一条错误级别的日志消息');
+          logger?.debug('【测试】这是一条调试级别的日志消息');
+          logger?.info('【测试】这是一条信息级别的日志消息');
+          logger?.warning('【测试】这是一条警告级别的日志消息');
+          logger?.error('【测试】这是一条错误级别的日志消息');
           
           // 记录一条包含控制台日志测试的消息
-          plugin.logService.debug('【测试】如果启用了控制台拦截，控制台输出也会被记录');
+          logger?.debug('【测试】如果启用了控制台拦截，控制台输出也会被记录');
           // 测试一次控制台输出
           console.log('【测试】这是一条控制台日志消息，用于测试控制台拦截');
           
           // 记录导出操作和使用的日志级别
-          plugin.logService.info(`开始导出日志，使用级别: ${logLevel}`);
+          logger?.info(`开始导出日志，使用级别: ${logLevel}`);
           
           // 明确传递日志级别参数
           logContent = plugin.logService.export(logLevel);
@@ -424,7 +441,7 @@ export function createAdvancedSection(
                             
         plugin.notificationManager.show('log-exported', `日志已导出(${logLevelText}级别)`, 3000);
         if (plugin.logService) {
-          plugin.logService.info(`用户导出了${logLevelText}级别的日志文件`);
+          logger?.info(`用户导出了${logLevelText}级别的日志文件`);
         }
       }));
   
@@ -449,7 +466,7 @@ export function createAdvancedSection(
         try {
           await plugin.clearCache();
         } catch (error) {
-          console.error('清除缓存失败', error);
+          logger?.error('清除缓存失败', { error: error instanceof Error ? error.message : String(error) });
           plugin.notificationManager.show('cache-error', `清除缓存失败: ${error.message || error}`, 5000);
         }
       }));

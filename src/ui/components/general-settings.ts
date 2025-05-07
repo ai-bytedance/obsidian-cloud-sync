@@ -2,6 +2,18 @@ import { Setting } from 'obsidian';
 import { PluginSettings, FilterMode } from '@models/plugin-settings';
 import CloudSyncPlugin from '@main';
 import { SyncFileFilter } from '@src/utils/sync-file-filter';
+import { ModuleLogger } from '@services/log/log-service';
+
+// 模块级别的日志记录器
+let logger: ModuleLogger | null = null;
+
+/**
+ * 配置模块日志记录器
+ * @param moduleLogger 日志记录器实例
+ */
+export function configureGeneralSettingsLogger(moduleLogger: ModuleLogger): void {
+  logger = moduleLogger;
+}
 
 /**
  * 创建通用设置部分
@@ -15,12 +27,17 @@ export function createGeneralSection(
   plugin: CloudSyncPlugin, 
   tempSettings: PluginSettings
 ): void {
+  // 初始化日志记录器，如果尚未初始化
+  if (!logger && plugin.logService) {
+    logger = plugin.logService.getModuleLogger('GeneralSettings');
+  }
+  
   // 添加一致性检查，确保enableSync和syncInterval的值保持一致
   if (!tempSettings.enableSync && tempSettings.syncInterval > 0) {
-    console.log('UI初始化：同步未启用但间隔大于0，修正为0');
+    logger?.info('UI初始化：同步未启用但间隔大于0，修正为0');
     tempSettings.syncInterval = 0;
   } else if (tempSettings.enableSync && tempSettings.syncInterval === 0) {
-    console.log('UI初始化：同步已启用但间隔为0，修正为默认值5');
+    logger?.info('UI初始化：同步已启用但间隔为0，修正为默认值5');
     tempSettings.syncInterval = 5;
   }
   
@@ -259,7 +276,7 @@ export function createGeneralSection(
             // 移除同步完成通知，该通知已在SyncManager中处理
             plugin.notificationManager.clear('sync-start');
           } catch (syncError) {
-            console.error('同步执行失败:', syncError);
+            logger?.error('同步执行失败:', syncError);
             
             // 清除开始通知
             plugin.notificationManager.clear('sync-start');
@@ -299,7 +316,7 @@ export function createGeneralSection(
               plugin.notificationManager.show('sync-error', errorMessage, 8000); // 显示8秒，让用户有足够时间阅读
           }
         } catch (error) {
-          console.error('同步过程中发生错误:', error);
+          logger?.error('同步过程中发生错误:', error);
           
           // 显示通用错误
           plugin.notificationManager.clear('sync-start');

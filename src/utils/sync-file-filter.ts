@@ -1,5 +1,6 @@
 import { PluginSettings, FilterMode } from '@models/plugin-settings';
 import { TAbstractFile, TFile } from 'obsidian';
+import { ModuleLogger } from '@services/log/log-service';
 
 /**
  * 同步文件过滤工具类
@@ -9,6 +10,17 @@ import { TAbstractFile, TFile } from 'obsidian';
  * @author Bing
  */
 export class SyncFileFilter {
+  // 静态日志记录器
+  private static logger: ModuleLogger | null = null;
+  
+  /**
+   * 配置工具类的日志记录器
+   * @param logger 日志记录器
+   */
+  static configureLogger(logger: ModuleLogger): void {
+    SyncFileFilter.logger = logger;
+  }
+  
   /**
    * 检测过滤模式
    * @param pattern 输入的过滤字符串
@@ -22,132 +34,203 @@ export class SyncFileFilter {
     // 检查是否包含通配符
     const wildcardChars = /[*?]/g;
     
-    if (regexSpecialChars.test(pattern)) {
+    if (pattern.startsWith('/') && pattern.endsWith('/')) {
+      // 如果以斜杠开始和结束，视为正则表达式
+      this.logger?.debug(`检测到正则表达式过滤规则: ${pattern}`);
       return 'regex';
     } else if (wildcardChars.test(pattern)) {
+      // 如果包含通配符，但不以斜杠封装，视为通配符匹配
+      this.logger?.debug(`检测到通配符过滤规则: ${pattern}`);
       return 'wildcard';
+    } else if (regexSpecialChars.test(pattern)) {
+      // 如果包含特殊字符但不是明确的正则表达式格式，建议作为正则处理
+      this.logger?.debug(`检测到含有特殊字符的过滤规则，作为正则处理: ${pattern}`);
+      return 'regex';
     } else {
+      // 其他情况视为简单部分匹配
+      this.logger?.debug(`检测到简单匹配过滤规则: ${pattern}`);
       return 'simple';
     }
   }
-
+  
   /**
-   * 将通配符模式转换为正则表达式
-   * @param pattern 通配符模式
-   * @returns 正则表达式
+   * 转换过滤模式为正则表达式
+   * @param pattern 过滤字符串
+   * @param mode 过滤模式
+   * @returns 编译后的正则表达式
    * @author Bing
    */
-  static wildcardToRegex(pattern: string): RegExp {
-    // 转义所有正则表达式特殊字符，但保留*和?
-    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-    
-    // 替换通配符为正则表达式等价形式
-    // * 匹配0个或多个任意字符
-    // ? 匹配1个任意字符
-    const converted = escaped
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
-    
-    // 返回一个完整的正则表达式
-    return new RegExp(`^${converted}$`);
+  static patternToRegex(pattern: string, mode: FilterMode): RegExp {
+    try {
+      if (mode === 'regex') {
+        // 如果是原生正则表达式格式，提取正则表达式内容
+        if (pattern.startsWith('/') && pattern.endsWith('/')) {
+          const regexContent = pattern.slice(1, -1);
+          this.logger?.debug(`正则表达式解析: ${pattern} -> ${regexContent}`);
+          return new RegExp(regexContent);
+        }
+        // 否则直接作为正则表达式内容使用
+        return new RegExp(pattern);
+      } else if (mode === 'wildcard') {
+        // 转换通配符为正则表达式
+        // * 匹配任意字符（包括路径分隔符）
+        // ? 匹配单个字符
+        const regexPattern = pattern
+          .replace(/\./g, '\\.') // 转义点号
+          .replace(/\*/g, '.*')  // * 转换为 .*
+          .replace(/\?/g, '.');  // ? 转换为 .
+        
+        this.logger?.debug(`通配符转换为正则: ${pattern} -> ${regexPattern}`);
+        return new RegExp(`^${regexPattern}$`);
+      } else {
+        // 简单匹配模式，任何位置匹配即可
+        this.logger?.debug(`简单匹配转换为正则: ${pattern}`);
+        return new RegExp(pattern);
+      }
+    } catch (error) {
+      this.logger?.error(`过滤规则转换为正则表达式失败: ${pattern}`, { error: error instanceof Error ? error.message : String(error) });
+      // 如果转换失败，返回一个匹配所有内容的正则表达式
+      return /^.*/;
+    }
   }
   
   /**
-   * 根据检测到的模式匹配模式
+   * 判断路径是否匹配过滤规则
+   * @param path 文件路径
    * @param pattern 过滤规则
-   * @param path 要测试的路径
+   * @param mode 过滤模式
    * @returns 是否匹配
    * @author Bing
    */
-  static matchWithAutoDetection(pattern: string, path: string): boolean {
-    // 检测过滤模式
-    const mode = this.detectFilterMode(pattern);
-    
-    switch (mode) {
-      case 'simple':
-        // 简单匹配：完全相等或是文件夹路径
-        return path === pattern || path.startsWith(pattern + '/');
-        
-      case 'wildcard':
-        // 通配符匹配：使用转换后的正则表达式
-        try {
-          const regex = this.wildcardToRegex(pattern);
-          return regex.test(path);
-        } catch (e) {
-          console.error(`通配符转换为正则表达式失败: ${pattern}`, e);
-          return false;
-        }
-        
-      case 'regex':
-        // 正则表达式匹配：直接使用
-        try {
-          const regex = new RegExp(pattern);
-          return regex.test(path);
-        } catch (e) {
-          console.error(`无效的正则表达式: ${pattern}`, e);
-          return false;
-        }
-    }
-  }
-
-  /**
-   * 判断文件是否应该被忽略
-   * @param file 文件
-   * @param settings 插件设置
-   * @returns 是否忽略
-   * @author Bing
-   */
-  static shouldIgnoreFile(file: TAbstractFile | { path: string }, settings: PluginSettings): boolean {
-    // 获取文件路径
-    const path = typeof file === 'object' && 'path' in file ? file.path : '';
-    // 获取文件名（不含路径）
-    const fileName = path.split('/').pop() || '';
-    
-    // 检查是否在忽略的文件夹中
-    for (const folderPattern of settings.ignoreFolders) {
-      // 使用智能模式检测匹配
-      if (this.matchWithAutoDetection(folderPattern.trim(), path)) {
-        return true;
+  static isPathMatched(path: string, pattern: string, mode: FilterMode): boolean {
+    try {
+      // 对于空模式，不匹配任何路径
+      if (!pattern.trim()) {
+        return false;
       }
       
-      // 对于目录结构，还需要检查路径的各个部分
-      const pathParts = path.split('/');
-      for (const part of pathParts) {
-        if (part && this.matchWithAutoDetection(folderPattern.trim(), part)) {
+      // 转换为正则表达式进行匹配
+      const regex = this.patternToRegex(pattern, mode);
+      const isMatch = regex.test(path);
+      
+      if (isMatch) {
+        this.logger?.debug(`路径 "${path}" 匹配过滤规则 "${pattern}" (${mode})`);
+      }
+      
+      return isMatch;
+    } catch (error) {
+      this.logger?.error(`路径匹配检查失败: ${path} -> ${pattern} (${mode})`, { error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  }
+  
+  /**
+   * 判断文件是否应该被排除在同步之外
+   * @param file 文件对象或带有path属性的对象
+   * @param settings 插件设置
+   * @returns 是否应该排除
+   */
+  static shouldExcludeFile(file: TFile | { path: string }, settings: PluginSettings): boolean {
+    const filePath = file.path;
+    const extension = file instanceof TFile ? file.extension : filePath.split('.').pop() || '';
+    
+    // 检查路径长度限制（Windows MAX_PATH = 260）
+    if (filePath.length > 200) {
+      this.logger?.warning(`文件路径过长，被排除: ${filePath}`);
+      return true;
+    }
+    
+    // 检查是否是系统文件（以.开头的隐藏文件）
+    const fileName = filePath.split('/').pop() || '';
+    if (fileName.startsWith('.')) {
+      this.logger?.debug(`排除系统文件: ${filePath}`);
+      return true;
+    }
+    
+    // 检查是否是Obsidian配置文件
+    const configDirs = ['.obsidian/', '.trash/'];
+    if (configDirs.some(dir => filePath.includes('/' + dir))) {
+      this.logger?.debug(`排除Obsidian配置文件: ${filePath}`);
+      return true;
+    }
+    
+    // 检查文件名忽略规则
+    if (settings.ignoreFiles && settings.ignoreFiles.length > 0) {
+      for (const filePattern of settings.ignoreFiles) {
+        if (!filePattern.trim()) continue;
+        
+        const mode = this.detectFilterMode(filePattern);
+        if (this.isPathMatched(fileName, filePattern, mode) || 
+            this.isPathMatched(filePath, filePattern, mode)) {
+          this.logger?.debug(`文件 "${filePath}" 匹配忽略文件规则 "${filePattern}"`);
           return true;
         }
       }
     }
     
-    // 检查是否是忽略的文件
-    for (const filePattern of settings.ignoreFiles) {
-      // 使用智能模式检测匹配
-      if (this.matchWithAutoDetection(filePattern.trim(), path) || 
-          this.matchWithAutoDetection(filePattern.trim(), fileName)) {
-        return true;
+    // 检查扩展名忽略规则
+    if (settings.ignoreExtensions && settings.ignoreExtensions.length > 0) {
+      if (extension) {
+        for (const extPattern of settings.ignoreExtensions) {
+          if (!extPattern.trim()) continue;
+          
+          const mode = this.detectFilterMode(extPattern);
+          if (this.isPathMatched(extension, extPattern, mode)) {
+            this.logger?.debug(`文件 "${filePath}" 匹配忽略扩展名规则 "${extPattern}"`);
+            return true;
+          }
+        }
       }
     }
     
-    // 检查是否有忽略的扩展名
-    let extension: string | undefined;
+    // 没有匹配任何排除规则，应该包含此文件
+    return false;
+  }
+  
+  /**
+   * 判断目录是否应该被排除
+   * @param dirPath 目录路径
+   * @param settings 插件设置
+   * @returns 是否应该排除
+   * @author Bing
+   */
+  static shouldExcludeDirectory(dirPath: string, settings: PluginSettings): boolean {
+    // 标准化目录路径，确保以/结尾
+    const standardDirPath = dirPath.endsWith('/') ? dirPath : dirPath + '/';
     
-    if (file instanceof TFile) {
-      extension = file.extension;
-    } else {
-      // 通过分割路径尝试获取扩展名
-      const parts = path.split('.');
-      extension = parts.length > 1 ? parts.pop() : undefined;
+    // 检查系统目录（以.开头的隐藏目录）
+    const isSystemDir = standardDirPath.split('/').some(segment => segment.startsWith('.') && segment !== '.');
+    if (isSystemDir) {
+      this.logger?.debug(`排除系统目录: ${standardDirPath}`);
+      return true;
     }
     
-    if (extension) {
-      for (const extPattern of settings.ignoreExtensions) {
-        // 使用智能模式检测匹配
-        if (this.matchWithAutoDetection(extPattern.trim(), extension)) {
+    // 检查是否是Obsidian配置目录
+    const configDirs = ['.obsidian/', '.trash/'];
+    if (configDirs.some(dir => standardDirPath.includes('/' + dir))) {
+      this.logger?.debug(`排除Obsidian配置目录: ${standardDirPath}`);
+      return true;
+    }
+    
+    // 检查文件夹忽略规则
+    if (settings.ignoreFolders && settings.ignoreFolders.length > 0) {
+      for (const folderPattern of settings.ignoreFolders) {
+        if (!folderPattern.trim()) continue;
+        
+        const mode = this.detectFilterMode(folderPattern);
+        
+        // 获取目录名（不包含路径）
+        const dirName = standardDirPath.split('/').filter(Boolean).pop() || '';
+        
+        if (this.isPathMatched(standardDirPath, folderPattern, mode) || 
+            this.isPathMatched(dirName, folderPattern, mode)) {
+          this.logger?.debug(`目录 "${standardDirPath}" 匹配忽略文件夹规则 "${folderPattern}"`);
           return true;
         }
       }
     }
     
+    // 没有匹配任何排除规则，应该包含此目录
     return false;
   }
 } 

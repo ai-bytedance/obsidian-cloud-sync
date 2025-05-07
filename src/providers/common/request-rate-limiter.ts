@@ -1,4 +1,6 @@
 import { RequestDelayLevel } from '@models/plugin-settings';
+import { ModuleLogger } from '@services/log/log-service';
+import CloudSyncPlugin from '@main';
 
 /**
  * 请求速率限制器
@@ -25,13 +27,15 @@ export class RequestRateLimiter {
   
   private limit: number;
   private requestDelay: number;
+  private logger: ModuleLogger | null = null;
   
   /**
    * 创建请求限速器
    * @param isPaidUser 是否为付费用户
    * @param delayLevel 延迟级别(minimal/normal/conservative)
+   * @param plugin 插件实例，用于获取日志服务
    */
-  constructor(isPaidUser: boolean = false, delayLevel: string = 'normal') {
+  constructor(isPaidUser: boolean = false, delayLevel: string = 'normal', plugin?: CloudSyncPlugin) {
     // 根据账户类型设置限制
     this.limit = isPaidUser ? this.PAID_USER_LIMIT : this.FREE_USER_LIMIT;
     
@@ -41,7 +45,11 @@ export class RequestRateLimiter {
     // 初始化重置时间
     this.resetTime = Date.now() + this.WINDOW_SIZE;
     
-    console.log(`请求限速器初始化: 限制=${this.limit}, 延迟=${this.requestDelay}ms, 窗口=${this.WINDOW_SIZE}ms`);
+    if (plugin && plugin.logService) {
+      this.logger = plugin.logService.getModuleLogger('RequestRateLimiter');
+    }
+    
+    this.logger?.info(`请求限速器初始化: 限制=${this.limit}, 延迟=${this.requestDelay}ms, 窗口=${this.WINDOW_SIZE}ms`);
   }
   
   /**
@@ -74,7 +82,7 @@ export class RequestRateLimiter {
   incrementCounter(): void {
     this.checkAndResetWindow();
     this.requestCount++;
-    console.log(`请求计数: ${this.requestCount}/${this.limit}, 重置时间: ${new Date(this.resetTime).toLocaleTimeString()}`);
+    this.logger?.debug(`请求计数: ${this.requestCount}/${this.limit}, 重置时间: ${new Date(this.resetTime).toLocaleTimeString()}`);
   }
   
   /**
@@ -83,7 +91,7 @@ export class RequestRateLimiter {
   private checkAndResetWindow(): void {
     const now = Date.now();
     if (now >= this.resetTime) {
-      console.log('重置请求计数窗口');
+      this.logger?.info('重置请求计数窗口');
       this.requestCount = 0;
       this.resetTime = now + this.WINDOW_SIZE;
     }

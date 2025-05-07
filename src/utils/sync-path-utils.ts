@@ -1,4 +1,5 @@
 import { PluginSettings, StorageProviderType } from '@models/plugin-settings';
+import { ModuleLogger } from '@services/log/log-service';
 
 /**
  * 同步路径工具类
@@ -7,6 +8,17 @@ import { PluginSettings, StorageProviderType } from '@models/plugin-settings';
  * @author Bing
  */
 export class SyncPathUtils {
+  // 静态日志记录器
+  private static logger: ModuleLogger | null = null;
+  
+  /**
+   * 配置工具类的日志记录器
+   * @param logger 日志记录器
+   */
+  static configureLogger(logger: ModuleLogger): void {
+    SyncPathUtils.logger = logger;
+  }
+
   /**
    * 获取远程根路径
    * @param settings 插件设置
@@ -23,7 +35,7 @@ export class SyncPathUtils {
         // 移除前导和尾部斜杠以确保一致性
         path = path.replace(/^\/+/, '').replace(/\/+$/, '');
         if (path) {
-          console.log(`使用WebDAV同步路径: ${path}`);
+          this.logger?.info(`使用WebDAV同步路径: ${path}`);
           return path;
         }
       }
@@ -65,12 +77,12 @@ export class SyncPathUtils {
    */
   static joinPaths(basePath: string, relativePath: string): string {
     if (!basePath) {
-      console.log(`基础路径为空，直接使用相对路径: ${relativePath}`);
+      this.logger?.debug(`基础路径为空，直接使用相对路径: ${relativePath}`);
       return relativePath;
     }
     
     if (!relativePath) {
-      console.log(`相对路径为空，直接使用基础路径: ${basePath}`);
+      this.logger?.debug(`相对路径为空，直接使用基础路径: ${basePath}`);
       return basePath;
     }
     
@@ -108,12 +120,12 @@ export class SyncPathUtils {
     
     // 如果已存在附件路径，避免重复
     if (containsAttachmentsPath && startsWithAttachmentsPath) {
-      console.log(`检测到附件路径重复，移除相对路径中的前缀: ${matchedPrefix}`);
+      this.logger?.info(`检测到附件路径重复，移除相对路径中的前缀: ${matchedPrefix}`);
       relativePath = relativePath.substring(matchedPrefix.length);
     }
     
     const fullPath = basePath + '/' + relativePath;
-    console.log(`路径合并: ${basePath} + ${relativePath} -> ${fullPath}`);
+    this.logger?.debug(`路径合并: ${basePath} + ${relativePath} -> ${fullPath}`);
     
     return fullPath;
   }
@@ -129,7 +141,7 @@ export class SyncPathUtils {
   static mapRemotePathToLocal(remotePath: string, basePath: string): string {
     // 如果没有basePath，则直接返回远程路径
     if (!basePath || basePath.trim() === '') {
-      console.log(`未设置basePath，直接使用远程路径: ${remotePath}`);
+      this.logger?.debug(`未设置basePath，直接使用远程路径: ${remotePath}`);
       return remotePath;
     }
     
@@ -143,14 +155,14 @@ export class SyncPathUtils {
     
     // 特殊情况1: 远程路径与basePath完全相同
     if (remotePath === basePath) {
-      console.log(`远程路径与basePath完全相同，返回空路径: ${remotePath} === ${basePath}`);
+      this.logger?.debug(`远程路径与basePath完全相同，返回空路径: ${remotePath} === ${basePath}`);
       return '';
     }
     
     // 特殊情况2: 远程路径是basePath的子路径
     if (remotePath.startsWith(basePath + '/')) {
       const localPath = remotePath.substring(basePath.length + 1);
-      console.log(`远程路径是basePath的子路径，提取子路径: ${remotePath} -> ${localPath}`);
+      this.logger?.debug(`远程路径是basePath的子路径，提取子路径: ${remotePath} -> ${localPath}`);
       return localPath;
     }
     
@@ -172,13 +184,13 @@ export class SyncPathUtils {
       if (allMatch) {
         // 移除前n段，剩余部分作为相对路径
         const localPath = remotePathSegments.slice(basePathSegments.length).join('/');
-        console.log(`检测到路径前缀与basePath匹配，移除重复部分: ${remotePath} -> ${localPath}`);
+        this.logger?.info(`检测到路径前缀与basePath匹配，移除重复部分: ${remotePath} -> ${localPath}`);
         return localPath;
       }
     }
     
     // 默认情况: 路径没有明显的重复，但不在basePath下，直接返回远程路径
-    console.log(`远程路径不在basePath下，直接使用: ${remotePath}`);
+    this.logger?.debug(`远程路径不在basePath下，直接使用: ${remotePath}`);
     return remotePath;
   }
 } 

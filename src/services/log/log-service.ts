@@ -24,6 +24,52 @@ interface OriginalConsoleMethods {
 }
 
 /**
+ * 模块化日志类，为特定模块提供日志记录
+ */
+export class ModuleLogger {
+  constructor(
+    private logService: LogService,
+    private moduleName: string
+  ) {}
+  
+  /**
+   * 记录调试级别日志
+   * @param message 日志消息
+   * @param data 附加数据（可选）
+   */
+  debug(message: string, data?: any): void {
+    this.logService.logWithModule('debug', this.moduleName, message, data);
+  }
+  
+  /**
+   * 记录信息级别日志
+   * @param message 日志消息
+   * @param data 附加数据（可选）
+   */
+  info(message: string, data?: any): void {
+    this.logService.logWithModule('info', this.moduleName, message, data);
+  }
+  
+  /**
+   * 记录警告级别日志
+   * @param message 日志消息
+   * @param data 附加数据（可选）
+   */
+  warning(message: string, data?: any): void {
+    this.logService.logWithModule('warning', this.moduleName, message, data);
+  }
+  
+  /**
+   * 记录错误级别日志
+   * @param message 日志消息
+   * @param data 附加数据（可选）
+   */
+  error(message: string, data?: any): void {
+    this.logService.logWithModule('error', this.moduleName, message, data);
+  }
+}
+
+/**
  * 日志服务类
  */
 export class LogService {
@@ -41,6 +87,10 @@ export class LogService {
   private app?: App;
   // 日志文件路径
   private readonly LOG_FILE_PATH = '.obsidian/plugins/obsidian-cloud-sync/logs/cloud-sync.log';
+  // 最大日志文件大小（5MB）
+  private readonly MAX_LOG_FILE_SIZE = 5 * 1024 * 1024;
+  // 保留的历史日志文件数量
+  private readonly MAX_LOG_HISTORY_FILES = 10;
 
   /**
    * 构造函数
@@ -187,6 +237,26 @@ export class LogService {
    */
   setApp(app: App): void {
     this.app = app;
+  }
+
+  /**
+   * 获取模块化日志记录器
+   * @param module 模块名称
+   * @returns 模块化日志记录器
+   */
+  getModuleLogger(module: string): ModuleLogger {
+    return new ModuleLogger(this, module);
+  }
+  
+  /**
+   * 记录带有模块信息的日志
+   * @param level 日志级别
+   * @param module 模块名称
+   * @param message 日志消息
+   * @param data 附加数据（可选）
+   */
+  logWithModule(level: LogLevel, module: string, message: string, data?: any): void {
+    this.log(level, `[${module}] ${message}`, data);
   }
 
   /**
@@ -431,6 +501,21 @@ export class LogService {
       }
       logLine += '\n';
       
+      // 检查日志文件大小并可能进行轮转
+      let needRotation = false;
+      
+      if (await adapter.exists(this.LOG_FILE_PATH)) {
+        const stat = await adapter.stat(this.LOG_FILE_PATH);
+        if (stat && stat.size > this.MAX_LOG_FILE_SIZE) {
+          needRotation = true;
+        }
+      }
+      
+      // 执行日志文件轮转
+      if (needRotation) {
+        await this.rotateLogFiles();
+      }
+      
       // 追加到日志文件
       if (await adapter.exists(this.LOG_FILE_PATH)) {
         const existingContent = await adapter.read(this.LOG_FILE_PATH);
@@ -443,6 +528,86 @@ export class LogService {
       // 不使用this.error避免递归
       if (!this.consoleIntercepted) {
         this.originalConsole.error('写入日志文件失败:', error);
+      }
+    }
+  }
+  
+  /**
+   * 执行日志文件轮转
+   * 将当前日志文件移动为备份，并创建新的日志文件
+   */
+  private async rotateLogFiles(): Promise<void> {
+    if (!this.app) {
+      return;
+    }
+    
+    const adapter = this.app.vault.adapter;
+    const basePath = this.LOG_FILE_PATH;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const rotatedPath = basePath.replace('.log', `-${timestamp}.log`);
+    
+    try {
+      // 如果旧文件存在，重命名它
+      if (await adapter.exists(basePath)) {
+        await adapter.rename(basePath, rotatedPath);
+        this.info(`日志文件已轮转: ${basePath} -> ${rotatedPath}`);
+      }
+      
+      // 清理旧日志文件，保留最近的几个
+      await this.cleanupOldLogFiles();
+    } catch (error) {
+      // 记录错误但继续执行
+      if (!this.consoleIntercepted) {
+        this.originalConsole.error('日志文件轮转失败:', error);
+      }
+    }
+  }
+  
+  /**
+   * 清理旧日志文件，保留最近的几个
+   */
+  private async cleanupOldLogFiles(): Promise<void> {
+    if (!this.app) {
+      return;
+    }
+    
+    const adapter = this.app.vault.adapter;
+    const logDirPath = normalizePath(this.LOG_FILE_PATH.substring(0, this.LOG_FILE_PATH.lastIndexOf('/')));
+    const logFilePrefix = this.LOG_FILE_PATH.substring(this.LOG_FILE_PATH.lastIndexOf('/') + 1).replace('.log', '');
+    
+    try {
+      // 列出日志目录中的所有文件
+      const files = await adapter.list(logDirPath);
+      
+      // 过滤出轮转的日志文件
+      const logFiles = files.files
+        .filter(file => {
+          const fileName = file.substring(file.lastIndexOf('/') + 1);
+          return fileName.startsWith(logFilePrefix) && 
+                 fileName !== logFilePrefix + '.log' &&
+                 fileName.endsWith('.log');
+        })
+        .sort()
+        .reverse(); // 最新的文件排在前面
+      
+      // 保留最近的日志文件，删除其余的
+      if (logFiles.length > this.MAX_LOG_HISTORY_FILES) {
+        for (let i = this.MAX_LOG_HISTORY_FILES; i < logFiles.length; i++) {
+          try {
+            await adapter.remove(logFiles[i]);
+            this.info(`已删除旧日志文件: ${logFiles[i]}`);
+          } catch (error) {
+            // 忽略单个文件删除失败
+            if (!this.consoleIntercepted) {
+              this.originalConsole.error(`删除旧日志文件失败: ${logFiles[i]}`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // 记录错误但继续执行
+      if (!this.consoleIntercepted) {
+        this.originalConsole.error('清理旧日志文件失败:', error);
       }
     }
   }
@@ -467,6 +632,20 @@ export class LogService {
       
       // 导出所有日志，明确使用当前日志级别
       const logContent = this.export(this.currentLevel);
+      
+      // 检查文件大小是否需要轮转
+      let needRotation = false;
+      if (await adapter.exists(this.LOG_FILE_PATH)) {
+        const stat = await adapter.stat(this.LOG_FILE_PATH);
+        if (stat && stat.size > this.MAX_LOG_FILE_SIZE) {
+          needRotation = true;
+        }
+      }
+      
+      // 执行日志文件轮转
+      if (needRotation) {
+        await this.rotateLogFiles();
+      }
       
       // 写入文件
       await adapter.write(this.LOG_FILE_PATH, logContent);

@@ -14,6 +14,9 @@ import { AESCryptoService } from '@services/crypto/aes-crypto-service';
 import { PluginService } from '@services/plugin-service';
 import CloudSyncPlugin from '@main';
 import { LogService } from '@services/log/log-service';
+import { SyncPathUtils } from '@src/utils/sync-path-utils';
+import { SyncFileFilter } from '@src/utils/sync-file-filter';
+import { configureMarkdownProcessor } from '@src/utils/markdown-processor';
 
 /**
  * 生命周期服务类
@@ -45,7 +48,10 @@ export class LifecycleService {
    * 整合所有初始化步骤
    */
   async initialize(): Promise<void> {
-    console.log('开始初始化 Cloud Sync 插件');
+    this.logService = new LogService(this.plugin.settings?.logLevel || 'info');
+    this.plugin.logService = this.logService;
+    
+    this.logService.info('开始初始化 Cloud Sync 插件');
     
     // 初始化服务
     this.initializeServices();
@@ -56,6 +62,9 @@ export class LifecycleService {
     // 初始化核心组件
     this.initializeComponents();
     
+    // 配置工具类的日志记录器
+    this.configureUtilityLoggers();
+    
     // 注册UI元素和命令
     this.registerUIElements();
     
@@ -64,15 +73,13 @@ export class LifecycleService {
     
     // 记录初始化完成日志
     this.logService.info('Cloud Sync 插件初始化完成');
-    console.log('Cloud Sync 插件初始化完成');
   }
   
   /**
    * 清理插件资源
    */
   cleanup(): void {
-    console.log('卸载 Cloud Sync 插件');
-    this.logService.info('Cloud Sync 插件正在卸载');
+    this.logService.info('卸载 Cloud Sync 插件');
     
     // 停止自动同步
     if (this.autoSyncManager) {
@@ -87,7 +94,7 @@ export class LifecycleService {
     // 导出最终日志（如果需要）
     if (this.plugin.settings.debugMode && this.logService) {
       const finalLog = this.logService.export();
-      console.log('最终日志:', finalLog);
+      this.logService.info('最终日志已导出', finalLog);
     }
   }
   
@@ -140,10 +147,8 @@ export class LifecycleService {
       try {
         await this.plugin.saveSettings(this.plugin.settings);
         this.logService.info('已在插件加载时修复设置问题');
-        console.log('已在插件加载时修复设置问题');
       } catch (error) {
         this.logService.error('保存修复后的设置失败', error);
-        console.error('保存修复后的设置失败:', error);
       }
     }
   }
@@ -192,7 +197,7 @@ export class LifecycleService {
     this.plugin.fileEventHandler = this.fileEventHandler;
     this.logService.info('文件事件处理器已初始化');
     
-    this.cacheManager = new CacheManager(this.notificationManager);
+    this.cacheManager = new CacheManager(this.notificationManager, this.plugin);
     this.plugin.cacheManager = this.cacheManager;
     this.logService.info('缓存管理器已初始化');
     
@@ -209,6 +214,51 @@ export class LifecycleService {
     );
     this.plugin.pluginService = this.pluginService;
     this.logService.info('插件服务已初始化');
+  }
+  
+  /**
+   * 配置工具类的日志记录器
+   */
+  private configureUtilityLoggers(): void {
+    // 为每个工具类创建模块日志记录器
+    const syncPathLogger = this.logService.getModuleLogger('SyncPathUtils');
+    const syncFileFilterLogger = this.logService.getModuleLogger('SyncFileFilter');
+    const markdownProcessorLogger = this.logService.getModuleLogger('MarkdownProcessor');
+    
+    // 为UI组件创建模块日志记录器
+    const webdavSettingsLogger = this.logService.getModuleLogger('WebDAVSettings');
+    const advancedSettingsLogger = this.logService.getModuleLogger('AdvancedSettings');
+    const generalSettingsLogger = this.logService.getModuleLogger('GeneralSettings');
+    const providerSettingsLogger = this.logService.getModuleLogger('ProviderSettings');
+    const settingsTabLogger = this.logService.getModuleLogger('SettingsTab');
+    
+    // 配置各个工具类的日志记录器
+    SyncPathUtils.configureLogger(syncPathLogger);
+    SyncFileFilter.configureLogger(syncFileFilterLogger);
+    configureMarkdownProcessor(markdownProcessorLogger);
+    
+    // 配置UI组件的日志记录器
+    try {
+      // 导入UI组件配置函数
+      const { configureWebDAVSettingsLogger } = require('@ui/components/webdav-settings-ui');
+      const { configureAdvancedSettingsLogger } = require('@ui/components/advanced-settings'); 
+      const { configureGeneralSettingsLogger } = require('@ui/components/general-settings');
+      const { configureProviderSettingsLogger } = require('@ui/components/provider-settings');
+      const { configureSettingsTabLogger } = require('@ui/components/settings-tab');
+      
+      // 配置UI组件日志记录器
+      configureWebDAVSettingsLogger(webdavSettingsLogger);
+      configureAdvancedSettingsLogger(advancedSettingsLogger);
+      configureGeneralSettingsLogger(generalSettingsLogger);
+      configureProviderSettingsLogger(providerSettingsLogger);
+      configureSettingsTabLogger(settingsTabLogger);
+      
+      this.logService.info('UI组件日志记录器已配置');
+    } catch (error) {
+      this.logService.warning('配置UI组件日志记录器失败，UI组件可能未正确使用日志系统', error);
+    }
+    
+    this.logService.info('工具类日志记录器已配置');
   }
   
   /**

@@ -10,6 +10,7 @@ import {
   parseFileInfoFromResponse, 
   parseQuotaFromResponse 
 } from '@providers/webdav/webdav-parsers';
+import CloudSyncPlugin from '@main';
 
 /**
  * 通用WebDAV提供商实现
@@ -20,10 +21,15 @@ export class GenericWebDAVVendor extends WebDAVBase {
    * 创建WebDAV提供商实例
    * @param config WebDAV配置
    * @param app Obsidian应用实例
+   * @param plugin 可选，插件实例，用于获取日志服务
    * @author Bing
    */
-  constructor(config: WebDAVSettings, app: App) {
-    super(config, app);
+  constructor(config: WebDAVSettings, app: App, plugin?: CloudSyncPlugin) {
+    super(config, app, plugin);
+    
+    if (plugin && plugin.logService && !this.logger) {
+      this.logger = plugin.logService.getModuleLogger('GenericWebDAVVendor');
+    }
   }
 
   /**
@@ -33,18 +39,18 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async connect(): Promise<boolean> {
     try {
-      console.log('开始连接到WebDAV服务器...');
+      this.logger?.info('开始连接到WebDAV服务器...');
       this.status = ConnectionStatus.CONNECTING;
       
       // 检查配置合法性
       if (!this.config || !this.config.username || !this.config.password) {
-        console.error('WebDAV配置不完整，缺少用户名或密码');
+        this.logger?.error('WebDAV配置不完整，缺少用户名或密码');
         this.status = ConnectionStatus.ERROR;
         throw new StorageProviderError('WebDAV配置不完整，请检查用户名和密码', 'CONFIG_ERROR');
       }
       
       if (!this.config.serverUrl || this.config.serverUrl.trim() === '') {
-        console.error('WebDAV配置不完整，缺少服务器URL');
+        this.logger?.error('WebDAV配置不完整，缺少服务器URL');
         this.status = ConnectionStatus.ERROR;
         throw new StorageProviderError('WebDAV配置不完整，请检查服务器URL', 'CONFIG_ERROR');
       }
@@ -52,7 +58,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
       // 检查URL是否包含有效域名
       const urlToCheck = this.config.serverUrl.trim();
       if (!urlToCheck.includes('.') && !urlToCheck.includes('localhost')) {
-        console.error(`URL缺少有效域名: ${urlToCheck}`);
+        this.logger?.error(`URL缺少有效域名: ${urlToCheck}`);
         this.status = ConnectionStatus.ERROR;
         throw new StorageProviderError('WebDAV服务器URL缺少有效域名，请检查URL格式', 'CONFIG_ERROR');
       }
@@ -69,7 +75,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
       while (!success && connectAttempts < maxConnectAttempts) {
         try {
           connectAttempts++;
-          console.log(`尝试连接到WebDAV服务器 (尝试 ${connectAttempts}/${maxConnectAttempts})...`);
+          this.logger?.info(`尝试连接到WebDAV服务器 (尝试 ${connectAttempts}/${maxConnectAttempts})...`);
           
           // 格式化URL并构建请求参数
           const url = this.formatUrl(this.config.serverUrl);
@@ -92,25 +98,25 @@ export class GenericWebDAVVendor extends WebDAVBase {
           const response = await requestUrl(requestParams);
           
           if (response.status >= 200 && response.status < 300) {
-            console.log('WebDAV连接成功');
+            this.logger?.info('WebDAV连接成功');
             success = true;
             this.status = ConnectionStatus.CONNECTED;
           } else {
-            console.warn(`WebDAV连接返回非成功状态码: ${response.status}`);
+            this.logger?.warning(`WebDAV连接返回非成功状态码: ${response.status}`);
             this.status = ConnectionStatus.ERROR;
             throw new StorageProviderError(`连接失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
           }
         } catch (error) {
-          console.warn(`WebDAV连接尝试 ${connectAttempts} 失败:`, error);
+          this.logger?.warning(`WebDAV连接尝试 ${connectAttempts} 失败:`, error);
           
           // 增加重试延迟时间
           retryDelay = Math.min(retryDelay * 1.5, 30000); // 最大延迟30秒
           
           if (connectAttempts < maxConnectAttempts) {
-            console.log(`将在 ${retryDelay/1000} 秒后重试...`);
+            this.logger?.info(`将在 ${retryDelay/1000} 秒后重试...`);
             await new Promise(resolve => setTimeout(resolve, retryDelay));
           } else {
-            console.error('WebDAV连接失败，已达到最大重试次数');
+            this.logger?.error('WebDAV连接失败，已达到最大重试次数');
             this.status = ConnectionStatus.ERROR;
             throw this.handleError(error);
           }
@@ -130,7 +136,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async disconnect(): Promise<void> {
     this.status = ConnectionStatus.DISCONNECTED;
-    console.log('已断开与WebDAV服务器的连接');
+    this.logger?.info('已断开与WebDAV服务器的连接');
   }
 
   /**
@@ -139,7 +145,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    * @author Bing
    */
   async testConnection(): Promise<boolean> {
-    console.log('测试WebDAV连接...');
+    this.logger?.info('测试WebDAV连接...');
     
     try {
       // 原始状态
@@ -147,7 +153,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
       
       // 如果已连接，保持状态不变
       if (originalStatus === ConnectionStatus.CONNECTED) {
-        console.log('WebDAV已经连接，跳过测试');
+        this.logger?.info('WebDAV已经连接，跳过测试');
         return true;
       }
       
@@ -162,7 +168,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
       
       return success;
     } catch (error) {
-      console.error('测试WebDAV连接失败:', error);
+      this.logger?.error('测试WebDAV连接失败:', error);
       return false;
     }
   }
@@ -175,7 +181,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
   protected getHeaders(): Record<string, string> {
     // 针对坚果云的特殊处理
     if (this.isJianGuoYun()) {
-      console.log('检测到坚果云WebDAV服务，使用特殊配置');
+      this.logger?.info('检测到坚果云WebDAV服务，使用特殊配置');
       return {
         'Authorization': this.getAuthHeader(),
         'Accept': '*/*',
@@ -184,6 +190,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
     }
     
     // 其他WebDAV服务的通用头
+    this.logger?.debug('使用通用WebDAV请求头配置');
     return {
       'Authorization': this.getAuthHeader(),
       'Content-Type': 'application/xml',
@@ -204,9 +211,10 @@ export class GenericWebDAVVendor extends WebDAVBase {
 
       // 使用支持UTF-8的方式编码认证字符串
       const auth = `${username}:${password}`;
+      this.logger?.debug(`正在生成认证头 (用户名: ${username.substring(0, 3)}***)`);
       return `Basic ${this.encodeAuthString(auth)}`;
     } catch (error) {
-      console.error('生成认证头失败:', error);
+      this.logger?.error('生成认证头失败:', error);
       throw new Error('用户名或密码包含无法编码的字符');
     }
   }
@@ -221,12 +229,14 @@ export class GenericWebDAVVendor extends WebDAVBase {
     try {
       // 方法1: 使用TextEncoder（如果环境支持）
       if (typeof TextEncoder !== 'undefined') {
+        this.logger?.debug('使用TextEncoder编码认证字符串');
         const encoder = new TextEncoder();
         const bytes = encoder.encode(str);
         return btoa(String.fromCharCode.apply(null, Array.from(bytes)));
       }
       
       // 方法2: 使用encodeURIComponent
+      this.logger?.debug('使用encodeURIComponent编码认证字符串');
       return btoa(
         encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, 
           (match, p1) => String.fromCharCode(parseInt(p1, 16))
@@ -234,11 +244,11 @@ export class GenericWebDAVVendor extends WebDAVBase {
       );
     } catch (error) {
       // 如果上述方法都失败，尝试直接使用btoa（可能对非ASCII字符失败）
-      console.warn('高级编码方法失败，尝试标准编码', error);
+      this.logger?.warning('高级编码方法失败，尝试标准编码', error);
       try {
         return btoa(str);
       } catch (e) {
-        console.error('所有认证编码方法均失败:', e);
+        this.logger?.error('所有认证编码方法均失败:', e);
         throw new Error('用户名或密码包含无法编码的特殊字符');
       }
     }
@@ -258,7 +268,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
     
     // 确保URL有效，防止错误匹配
     if (!serverUrl.includes('.') && !serverUrl.includes('localhost')) {
-      console.warn(`isJianGuoYun: URL缺少有效域名: ${serverUrl}, 不会识别为坚果云`);
+      this.logger?.warning(`isJianGuoYun: URL缺少有效域名: ${serverUrl}, 不会识别为坚果云`);  
       return false;
     }
     
@@ -385,11 +395,11 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async listFiles(path: string = '', recursive: boolean = true): Promise<FileInfo[]> {
     try {
-      console.log(`列出WebDAV目录内容: ${path}, 递归: ${recursive}`);
+      this.logger?.info(`列出WebDAV目录内容: ${path}, 递归: ${recursive}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
-        console.log('WebDAV未连接，尝试连接...');
+        this.logger?.info('WebDAV未连接，尝试连接...');
         await this.connect();
       }
       
@@ -406,7 +416,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
       
       // 是否递归列出文件夹
       if (recursive) {
-        console.log(`使用递归方式列出文件: ${path}`);
+        this.logger?.info(`使用递归方式列出文件: ${path}`);
         return await this.listFilesManualRecursive(path);
       } else {
         // 单层列出
@@ -447,13 +457,13 @@ export class GenericWebDAVVendor extends WebDAVBase {
             // 添加到结果
             result.push(...filteredInfos);
           } else {
-            console.warn(`列出目录内容失败，状态码: ${response.status}`);
+            this.logger?.warning(`列出目录内容失败，状态码: ${response.status}`);
             throw new StorageProviderError(`列出目录内容失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
           }
         } catch (error) {
           // 如果是404错误，返回空列表
           if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
-            console.warn(`目录不存在: ${path}`);
+            this.logger?.warning(`目录不存在: ${path}`);
             return [];
           }
           
@@ -463,7 +473,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
       
       return result;
     } catch (error) {
-      console.error('列出WebDAV目录内容失败:', error);
+      this.logger?.error('列出WebDAV目录内容失败:', error);
       throw this.handleError(error);
     }
   }
@@ -474,7 +484,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    * @returns 文件列表
    */
   private async listFilesManualRecursive(path: string = ''): Promise<FileInfo[]> {
-    console.log(`递归列出目录内容: ${path}`);
+    this.logger?.info(`递归列出目录内容: ${path}`);
     
     // 用于暂存结果的文件列表
     let allFiles: FileInfo[] = [];
@@ -491,7 +501,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
       } catch (error) {
         // 如果出错且还有重试次数，则重试
         if (retryCount < maxRetries) {
-          console.warn(`列出目录 ${currentPath} 失败，重试 (${retryCount + 1}/${maxRetries})...`);
+          this.logger?.warning(`列出目录 ${currentPath} 失败，重试 (${retryCount + 1}/${maxRetries})...`);
           await new Promise(resolve => setTimeout(resolve, 2000)); // 延迟2秒
           return retryableListFiles(currentPath, retryCount + 1);
         }
@@ -503,7 +513,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
     const recursiveList = async (currentPath: string, depth: number = 0): Promise<FileInfo[]> => {
       // 防止过深的递归
       if (depth > 20) {
-        console.warn(`目录递归深度超过20层，停止继续递归: ${currentPath}`);
+        this.logger?.warning(`目录递归深度超过20层，停止继续递归: ${currentPath}`);
         return [];
       }
       
@@ -512,15 +522,15 @@ export class GenericWebDAVVendor extends WebDAVBase {
       
       // 检查是否已访问此路径（循环检测）
       if (visitedPaths.has(normalizedPath)) {
-        console.warn(`检测到递归循环，路径 "${normalizedPath}" 已经被访问过，跳过进一步递归`);
-        console.warn(`已访问路径历史: ${Array.from(visitedPaths).join(', ')}`);
+        this.logger?.warning(`检测到递归循环，路径 "${normalizedPath}" 已经被访问过，跳过进一步递归`);
+        this.logger?.warning(`已访问路径历史: ${Array.from(visitedPaths).join(', ')}`);
         return [];
       }
       
       // 将当前路径添加到已访问集合
       visitedPaths.add(normalizedPath);
       
-      console.log(`递归列出目录 (深度 ${depth}): ${currentPath}`);
+      this.logger?.info(`递归列出目录 (深度 ${depth}): ${currentPath}`);
       
       // 用于存储结果
       const results: FileInfo[] = [];
@@ -550,7 +560,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
               normalizedPath + '/' === filePath ||
               normalizedPath.startsWith(filePath + '/')
             ) {
-              console.warn(`跳过可能导致循环的目录: ${file.path} (当前路径: ${normalizedPath})`);
+              this.logger?.warning(`跳过可能导致循环的目录: ${file.path} (当前路径: ${normalizedPath})`);
               continue;
             }
             
@@ -560,12 +570,12 @@ export class GenericWebDAVVendor extends WebDAVBase {
               results.push(...subFiles);
             } catch (error) {
               // 如果子目录出错，记录但继续处理其他目录
-              console.warn(`无法递归列出目录 ${file.path}: ${error}`);
+              this.logger?.warning(`无法递归列出目录 ${file.path}: ${error}`);
             }
           }
         }
       } catch (error) {
-        console.warn(`列出目录内容失败 ${currentPath}: ${error}`);
+        this.logger?.warning(`列出目录内容失败 ${currentPath}: ${error}`);
         // 不阻止整个过程，返回已有结果
       }
       
@@ -586,7 +596,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async downloadFile(remotePath: string, localPath: string): Promise<void> {
     try {
-      console.log(`下载WebDAV文件: ${remotePath} -> ${localPath}`);
+      this.logger?.info(`下载WebDAV文件: ${remotePath} -> ${localPath}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -639,13 +649,13 @@ export class GenericWebDAVVendor extends WebDAVBase {
         // 写入文件
         await this.app.vault.adapter.writeBinary(localPath, content);
         
-        console.log(`文件下载成功: ${remotePath} -> ${localPath}`);
+        this.logger?.info(`文件下载成功: ${remotePath} -> ${localPath}`);
       } else {
-        console.warn(`下载文件失败，状态码: ${response.status}`);
+        this.logger?.warning(`下载文件失败，状态码: ${response.status}`);
         throw new StorageProviderError(`下载文件失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
-      console.error('下载WebDAV文件失败:', error);
+      this.logger?.error('下载WebDAV文件失败:', error);
       throw this.handleError(error);
     }
   }
@@ -658,7 +668,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async downloadFileContent(remotePath: string): Promise<string | ArrayBuffer> {
     try {
-      console.log(`下载WebDAV文件内容: ${remotePath}`);
+      this.logger?.info(`下载WebDAV文件内容: ${remotePath}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -687,18 +697,18 @@ export class GenericWebDAVVendor extends WebDAVBase {
         const extension = remotePath.split('.').pop() || '';
         
         if (isBinaryContentType(contentType) || isBinaryFileType(extension)) {
-          console.log(`文件 ${remotePath} 被识别为二进制类型，返回ArrayBuffer`);
+          this.logger?.info(`文件 ${remotePath} 被识别为二进制类型，返回ArrayBuffer`);
           return response.arrayBuffer;
         } else {
-          console.log(`文件 ${remotePath} 被识别为文本类型，返回文本内容`);
+          this.logger?.info(`文件 ${remotePath} 被识别为文本类型，返回文本内容`);
           return response.text;
         }
       } else {
-        console.warn(`下载文件内容失败，状态码: ${response.status}`);
+        this.logger?.warning(`下载文件内容失败，状态码: ${response.status}`);
         throw new StorageProviderError(`下载文件内容失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
-      console.error('下载WebDAV文件内容失败:', error);
+      this.logger?.error('下载WebDAV文件内容失败:', error);
       throw this.handleError(error);
     }
   }
@@ -711,7 +721,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async uploadFile(remotePath: string, content: string | ArrayBuffer): Promise<void> {
     try {
-      console.log(`上传文件到WebDAV: ${remotePath}`);
+      this.logger?.info(`上传文件到WebDAV: ${remotePath}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -749,13 +759,13 @@ export class GenericWebDAVVendor extends WebDAVBase {
       const response = await requestUrl(requestParams);
       
       if (response.status >= 200 && response.status < 300) {
-        console.log(`文件上传成功: ${remotePath}`);
+        this.logger?.info(`文件上传成功: ${remotePath}`);
       } else {
-        console.warn(`上传文件失败，状态码: ${response.status}`);
+        this.logger?.warning(`上传文件失败，状态码: ${response.status}`);
         throw new StorageProviderError(`上传文件失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
-      console.error('上传WebDAV文件失败:', error);
+      this.logger?.error('上传WebDAV文件失败:', error);
       throw this.handleError(error);
     }
   }
@@ -814,7 +824,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
         }
       } catch (error) {
         // 如果检查失败（通常是因为目录不存在），继续创建
-        console.warn(`检查目录 ${path} 是否存在时出错:`, error);
+        this.logger?.warning(`检查目录 ${path} 是否存在时出错:`, error);
       }
       
       // 确保父目录存在
@@ -826,11 +836,11 @@ export class GenericWebDAVVendor extends WebDAVBase {
     } catch (error) {
       // 特殊处理冲突错误，可能是目录已经存在
       if (error instanceof StorageProviderError && error.code === 'CONFLICT') {
-        console.log(`目录 ${path} 已经存在，无需创建`);
+        this.logger?.info(`目录 ${path} 已经存在，无需创建`);
         return;
       }
       
-      console.error(`确保目录 ${path} 存在时失败:`, error);
+      this.logger?.error(`确保目录 ${path} 存在时失败:`, error);
       throw this.handleError(error);
     }
   }
@@ -842,7 +852,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async deleteFile(remotePath: string): Promise<void> {
     try {
-      console.log(`从WebDAV删除文件: ${remotePath}`);
+      this.logger?.info(`从WebDAV删除文件: ${remotePath}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -866,22 +876,22 @@ export class GenericWebDAVVendor extends WebDAVBase {
       const response = await requestUrl(requestParams);
       
       if (response.status >= 200 && response.status < 300) {
-        console.log(`文件删除成功: ${remotePath}`);
+        this.logger?.info(`文件删除成功: ${remotePath}`);
       } else if (response.status === 404) {
         // 文件不存在也算成功
-        console.log(`文件不存在，无需删除: ${remotePath}`);
+        this.logger?.info(`文件不存在，无需删除: ${remotePath}`);
       } else {
-        console.warn(`删除文件失败，状态码: ${response.status}`);
+        this.logger?.warning(`删除文件失败，状态码: ${response.status}`);
         throw new StorageProviderError(`删除文件失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
       // 如果是404错误，文件不存在，视为成功
       if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
-        console.log(`文件不存在，无需删除: ${remotePath}`);
+        this.logger?.info(`文件不存在，无需删除: ${remotePath}`);
         return;
       }
       
-      console.error('删除WebDAV文件失败:', error);
+      this.logger?.error('删除WebDAV文件失败:', error);
       throw this.handleError(error);
     }
   }
@@ -894,7 +904,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async moveFile(oldPath: string, newPath: string): Promise<void> {
     try {
-      console.log(`移动WebDAV文件: ${oldPath} -> ${newPath}`);
+      this.logger?.info(`移动WebDAV文件: ${oldPath} -> ${newPath}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -907,7 +917,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
       
       // 如果源路径和目标路径相同，无需移动
       if (oldPath === newPath) {
-        console.log('源路径和目标路径相同，无需移动');
+        this.logger?.info('源路径和目标路径相同，无需移动');
         return;
       }
       
@@ -933,13 +943,13 @@ export class GenericWebDAVVendor extends WebDAVBase {
       const response = await requestUrl(requestParams);
       
       if (response.status >= 200 && response.status < 300) {
-        console.log(`文件移动成功: ${oldPath} -> ${newPath}`);
+        this.logger?.info(`文件移动成功: ${oldPath} -> ${newPath}`);
       } else {
-        console.warn(`移动文件失败，状态码: ${response.status}`);
+        this.logger?.warning(`移动文件失败，状态码: ${response.status}`);
         throw new StorageProviderError(`移动文件失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
-      console.error('移动WebDAV文件失败:', error);
+      this.logger?.error('移动WebDAV文件失败:', error);
       throw this.handleError(error);
     }
   }
@@ -957,7 +967,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
         throw new Error('目录层级过深，超过最大递归深度');
       }
       
-      console.log(`在WebDAV创建文件夹: ${path}`);
+      this.logger?.info(`在WebDAV创建文件夹: ${path}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -986,23 +996,23 @@ export class GenericWebDAVVendor extends WebDAVBase {
       const response = await requestUrl(requestParams);
       
       if (response.status >= 200 && response.status < 300) {
-        console.log(`文件夹创建成功: ${path}`);
+        this.logger?.info(`文件夹创建成功: ${path}`);
       } else if (response.status === 405 || response.status === 409) {
         // 405或409通常表示目录已存在
-        console.log(`文件夹已存在: ${path}`);
+        this.logger?.info(`文件夹已存在: ${path}`);
       } else {
-        console.warn(`创建文件夹失败，状态码: ${response.status}`);
+        this.logger?.warning(`创建文件夹失败，状态码: ${response.status}`);
         throw new StorageProviderError(`创建文件夹失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
       // 特殊处理冲突错误，可能是目录已经存在
       if (error && typeof error === 'object' && 'status' in error && 
           (error.status === 405 || error.status === 409)) {
-        console.log(`文件夹已存在: ${path}`);
+        this.logger?.info(`文件夹已存在: ${path}`);
         return;
       }
       
-      console.error('创建WebDAV文件夹失败:', error);
+      this.logger?.error('创建WebDAV文件夹失败:', error);
       throw this.handleError(error);
     }
   }
@@ -1014,7 +1024,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async deleteFolder(path: string): Promise<void> {
     try {
-      console.log(`从WebDAV删除文件夹: ${path}`);
+      this.logger?.info(`从WebDAV删除文件夹: ${path}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -1043,22 +1053,22 @@ export class GenericWebDAVVendor extends WebDAVBase {
       const response = await requestUrl(requestParams);
       
       if (response.status >= 200 && response.status < 300) {
-        console.log(`文件夹删除成功: ${path}`);
+        this.logger?.info(`文件夹删除成功: ${path}`);
       } else if (response.status === 404) {
         // 文件夹不存在也算成功
-        console.log(`文件夹不存在，无需删除: ${path}`);
+        this.logger?.info(`文件夹不存在，无需删除: ${path}`);
       } else {
-        console.warn(`删除文件夹失败，状态码: ${response.status}`);
+        this.logger?.warning(`删除文件夹失败，状态码: ${response.status}`);
         throw new StorageProviderError(`删除文件夹失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
       // 如果是404错误，文件夹不存在，视为成功
       if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
-        console.log(`文件夹不存在，无需删除: ${path}`);
+        this.logger?.info(`文件夹不存在，无需删除: ${path}`);
         return;
       }
       
-      console.error('删除WebDAV文件夹失败:', error);
+      this.logger?.error('删除WebDAV文件夹失败:', error);
       throw this.handleError(error);
     }
   }
@@ -1071,7 +1081,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async folderExists(path: string): Promise<boolean> {
     try {
-      console.log(`检查WebDAV文件夹是否存在: ${path}`);
+      this.logger?.info(`检查WebDAV文件夹是否存在: ${path}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -1126,7 +1136,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
         // 资源不存在
         return false;
       } else {
-        console.warn(`检查文件夹是否存在失败，状态码: ${response.status}`);
+        this.logger?.warning(`检查文件夹是否存在失败，状态码: ${response.status}`);
         throw new StorageProviderError(`检查文件夹是否存在失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
@@ -1135,7 +1145,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
         return false;
       }
       
-      console.error('检查WebDAV文件夹是否存在失败:', error);
+      this.logger?.error('检查WebDAV文件夹是否存在失败:', error);
       throw this.handleError(error);
     }
   }
@@ -1148,7 +1158,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async getFileMetadata(path: string): Promise<FileMetadata> {
     try {
-      console.log(`获取WebDAV文件元数据: ${path}`);
+      this.logger?.info(`获取WebDAV文件元数据: ${path}`);
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -1206,11 +1216,11 @@ export class GenericWebDAVVendor extends WebDAVBase {
       } else if (response.status === 404) {
         throw new StorageProviderError('文件不存在', 'NOT_FOUND');
       } else {
-        console.warn(`获取文件元数据失败，状态码: ${response.status}`);
+        this.logger?.warning(`获取文件元数据失败，状态码: ${response.status}`);
         throw new StorageProviderError(`获取文件元数据失败，服务器返回状态码 ${response.status}`, 'HTTP_ERROR');
       }
     } catch (error) {
-      console.error('获取WebDAV文件元数据失败:', error);
+      this.logger?.error('获取WebDAV文件元数据失败:', error);
       throw this.handleError(error);
     }
   }
@@ -1222,7 +1232,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
    */
   async getQuota(): Promise<QuotaInfo> {
     try {
-      console.log('获取WebDAV配额信息');
+      this.logger?.info('获取WebDAV配额信息');
       
       // 确保连接状态
       if (this.status !== ConnectionStatus.CONNECTED) {
@@ -1263,7 +1273,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
           total: quota.available >= 0 && quota.used >= 0 ? quota.available + quota.used : -1
         };
       } else {
-        console.warn(`获取配额信息失败，状态码: ${response.status}`);
+        this.logger?.warning(`获取配额信息失败，状态码: ${response.status}`);
         return {
           available: -1,
           used: -1,
@@ -1271,7 +1281,7 @@ export class GenericWebDAVVendor extends WebDAVBase {
         };
       }
     } catch (error) {
-      console.error('获取WebDAV配额信息失败:', error);
+      this.logger?.error('获取WebDAV配额信息失败:', error);
       
       // 获取配额信息失败不应阻止其他操作，返回默认值
       return {

@@ -3,6 +3,7 @@ import CloudSyncPlugin from '@main';
 import { AutoSyncManager } from '@src/core/auto-sync-manager';
 import { ProviderManager } from '@src/core/provider-manager';
 import { NotificationManager } from '@services/notification/notification-manager';
+import { ModuleLogger } from '@services/log/log-service';
 
 /**
  * 设置管理器类
@@ -12,6 +13,7 @@ import { NotificationManager } from '@services/notification/notification-manager
 export class SettingsManager {
   private autoSyncManager: AutoSyncManager | null = null;
   private providerManager: ProviderManager | null = null;
+  private logger: ModuleLogger;
   
   /**
    * 构造函数
@@ -22,7 +24,9 @@ export class SettingsManager {
   constructor(
     private plugin: CloudSyncPlugin,
     private notificationManager: NotificationManager
-  ) {}
+  ) {
+    this.logger = this.plugin.logService.getModuleLogger('SettingsManager');
+  }
   
   /**
    * 设置依赖组件
@@ -50,26 +54,26 @@ export class SettingsManager {
     
     // 确保同步模式和同步方向有有效值
     if (!settings.syncMode) {
-      console.log('同步模式无效，设置为默认值: incremental');
+      this.logger.info('同步模式无效，设置为默认值: incremental');
       settings.syncMode = 'incremental';
     }
     
     if (!settings.syncDirection) {
-      console.log('同步方向无效，设置为默认值: bidirectional');
+      this.logger.info('同步方向无效，设置为默认值: bidirectional');
       settings.syncDirection = 'bidirectional';
     }
     
     // 处理同步间隔与自动同步的关联逻辑 
     if (settings.syncInterval === 0 && settings.enableSync) {
-      console.log('加载设置时检测到同步间隔为0但同步已启用，自动关闭同步功能');
+      this.logger.info('加载设置时检测到同步间隔为0但同步已启用，自动关闭同步功能');
       settings.enableSync = false;
     }
     
     // 记录加载的设置
-    console.log('加载的设置，同步模式:', settings.syncMode, 
-                '同步方向:', settings.syncDirection,
-                '自动同步:', settings.enableSync,
-                '同步间隔:', settings.syncInterval);
+    this.logger.info('加载的设置，同步模式: ' + settings.syncMode + 
+                    ', 同步方向: ' + settings.syncDirection + 
+                    ', 自动同步: ' + settings.enableSync + 
+                    ', 同步间隔: ' + settings.syncInterval);
     
     return settings;
   }
@@ -94,7 +98,7 @@ export class SettingsManager {
     
     // 处理同步间隔与自动同步的关联逻辑
     if (this.plugin.settings.syncInterval === 0 && this.plugin.settings.enableSync) {
-      console.log('设置同步间隔为0，自动关闭同步功能');
+      this.logger.info('设置同步间隔为0，自动关闭同步功能');
       this.plugin.settings.enableSync = false;
     }
     
@@ -102,7 +106,7 @@ export class SettingsManager {
     
     // 确保所需的依赖组件已设置
     if (!this.providerManager || !this.autoSyncManager) {
-      console.warn('保存设置时未设置必要的依赖组件');
+      this.logger.warning('保存设置时未设置必要的依赖组件');
       return;
     }
     
@@ -131,15 +135,16 @@ export class SettingsManager {
     const syncIntervalChanged = oldSyncInterval !== this.plugin.settings.syncInterval;
     
     // 由于设置管理是一个关键点，添加更多调试信息
-    console.log('保存设置，变更检测:', {
-      enableSyncChanged,
-      syncIntervalChanged,
-      providersChanged,
-      webdavEnableChanged
-    });
+    this.logger.info('保存设置，变更检测: ' + 
+                     JSON.stringify({
+                       enableSyncChanged,
+                       syncIntervalChanged,
+                       providersChanged,
+                       webdavEnableChanged
+                     }));
     
     // 重新初始化存储提供商 - 无条件执行以确保同步状态正确
-    console.log('重新初始化存储提供商...');
+    this.logger.info('重新初始化存储提供商...');
     await this.providerManager.initializeProviders();
     
     // 更新插件中的提供商映射引用
@@ -147,7 +152,7 @@ export class SettingsManager {
     
     // 如果任何相关设置发生变化，更新自动同步状态
     if (enableSyncChanged || syncIntervalChanged || providersChanged || webdavEnableChanged) {
-      console.log('同步相关设置已变更，更新自动同步状态');
+      this.logger.info('同步相关设置已变更，更新自动同步状态');
       this.autoSyncManager.updateAutoSyncStatus();
     }
   }
@@ -160,7 +165,7 @@ export class SettingsManager {
   validateAndFixSettings(): boolean {
     let needSave = false;
     
-    console.log('验证设置一致性...');
+    this.logger.info('验证设置一致性...');
     
     // 检查设置的基本结构
     if (!this.plugin.settings.enabledProviders) {
@@ -182,12 +187,12 @@ export class SettingsManager {
         
         if (isEnabled && !isInEnabled) {
           // 修复：已启用但不在列表中
-          console.log('修复：WebDAV已启用但不在enabledProviders列表中');
+          this.logger.info('修复：WebDAV已启用但不在enabledProviders列表中');
           this.plugin.settings.enabledProviders.push('webdav');
           needSave = true;
         } else if (!isEnabled && isInEnabled) {
           // 修复：在列表中但未启用
-          console.log('修复：WebDAV在enabledProviders列表中但未启用，从列表中移除');
+          this.logger.info('修复：WebDAV在enabledProviders列表中但未启用，从列表中移除');
           this.plugin.settings.enabledProviders = this.plugin.settings.enabledProviders.filter(p => p !== 'webdav');
           needSave = true;
         }
@@ -196,12 +201,12 @@ export class SettingsManager {
     
     // 处理同步间隔与自动同步关联逻辑
     if (this.plugin.settings.syncInterval === 0 && this.plugin.settings.enableSync) {
-      console.log('同步间隔为0，自动关闭自动同步');
+      this.logger.info('同步间隔为0，自动关闭自动同步');
       this.plugin.settings.enableSync = false;
       needSave = true;
     } else if (this.plugin.settings.syncInterval > 0 && !this.plugin.settings.enableSync) {
       // 注意：不自动打开，只修复间隔与状态的不一致
-      console.log('同步间隔大于0但同步未启用，可能存在不一致');
+      this.logger.info('同步间隔大于0但同步未启用，可能存在不一致');
     }
     
     return needSave;

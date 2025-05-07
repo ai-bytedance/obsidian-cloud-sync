@@ -1,6 +1,7 @@
 import { StorageProvider, FileInfo } from '@providers/common/storage-provider';
 import { StorageProviderType } from '@models/plugin-settings';
 import CloudSyncPlugin from '@main';
+import { ModuleLogger } from '@services/log/log-service';
 
 /**
  * 本地文件信息接口
@@ -41,6 +42,16 @@ export interface SyncStrategy {
  * @author Bing
  */
 export abstract class SyncStrategyBase implements SyncStrategy {
+  protected logger: ModuleLogger;
+  
+  /**
+   * 构造函数
+   * @param plugin 插件实例
+   */
+  constructor(protected plugin: CloudSyncPlugin) {
+    this.logger = this.plugin.logService.getModuleLogger('SyncStrategy');
+  }
+  
   /**
    * 执行同步
    * @param provider 存储提供商
@@ -102,7 +113,7 @@ export abstract class SyncStrategyBase implements SyncStrategy {
   ): Promise<void> {
     // 检查是否启用加密
     if (plugin.settings.encryption.enabled && plugin.settings.encryption.key) {
-      console.log(`加密已启用，对二进制文件内容进行加密: ${sourceFilePath}`);
+      this.logger.info(`加密已启用，对二进制文件内容进行加密: ${sourceFilePath}`);
       
       try {
         // 二进制内容直接进行加密
@@ -117,9 +128,9 @@ export abstract class SyncStrategyBase implements SyncStrategy {
         // 但WebDAV实现实际上是: uploadFile(remotePath, content)
         // @ts-ignore 忽略类型检查，因为我们知道实际实现
         await provider.uploadFile(remotePath, encryptedBuffer);
-        console.log(`加密上传二进制文件成功: ${sourceFilePath}`);
+        this.logger.info(`加密上传二进制文件成功: ${sourceFilePath}`);
       } catch (encryptError) {
-        console.error(`加密二进制文件失败: ${sourceFilePath}`, encryptError);
+        this.logger.error(`加密二进制文件失败: ${sourceFilePath}`, encryptError);
         // 如果加密失败，使用原始内容上传
         // @ts-ignore 忽略类型检查
         await provider.uploadFile(remotePath, content);
@@ -150,29 +161,29 @@ export abstract class SyncStrategyBase implements SyncStrategy {
   ): Promise<void> {
     // 检查是否启用加密
     if (plugin.settings.encryption.enabled && plugin.settings.encryption.key) {
-      console.log(`加密已启用，对文件内容进行加密: ${sourceFilePath}`);
+      this.logger.info(`加密已启用，对文件内容进行加密: ${sourceFilePath}`);
       
       // 检查内容是否已经是加密内容，避免二次加密
       const isBase64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(content);
       if (isBase64 && content.length > 100) {  // 加密后的Base64字符串通常较长
-        console.log(`检测到可能已经是加密内容，避免二次加密: ${sourceFilePath}`);
+        this.logger.info(`检测到可能已经是加密内容，避免二次加密: ${sourceFilePath}`);
         try {
           // 尝试解密，如果能解密则说明是已加密内容
           const buffer = await this.base64ToArrayBuffer(content);
           try {
             await plugin.cryptoService.decrypt(buffer, plugin.settings.encryption.key);
-            console.log(`内容已加密，直接上传: ${sourceFilePath}`);
+            this.logger.info(`内容已加密，直接上传: ${sourceFilePath}`);
             // 内容已加密，直接上传
             // @ts-ignore 忽略类型检查，接口与实现不一致
             await provider.uploadFile(remotePath, content);
             return;
           } catch (decryptError) {
             // 解密失败，说明不是加密内容，继续正常加密流程
-            console.log(`内容不是加密格式，继续执行加密: ${sourceFilePath}`);
+            this.logger.info(`内容不是加密格式，继续执行加密: ${sourceFilePath}`);
           }
         } catch (error) {
           // Base64解析失败，可能不是加密内容，继续正常加密流程
-          console.log(`Base64解析失败，继续执行加密: ${sourceFilePath}`);
+          this.logger.info(`Base64解析失败，继续执行加密: ${sourceFilePath}`);
         }
       }
       
@@ -192,9 +203,9 @@ export abstract class SyncStrategyBase implements SyncStrategy {
         // 但实际实现中WebDAV接口的参数是(remotePath, content)
         // @ts-ignore 忽略类型检查，接口与实现不一致
         await provider.uploadFile(remotePath, encryptedBase64);
-        console.log(`加密上传成功: ${sourceFilePath}`);
+        this.logger.info(`加密上传成功: ${sourceFilePath}`);
       } catch (encryptError) {
-        console.error(`加密失败: ${sourceFilePath}`, encryptError);
+        this.logger.error(`加密失败: ${sourceFilePath}`, encryptError);
         // 如果加密失败，使用原始内容上传
         // @ts-ignore 忽略类型检查，接口与实现不一致
         await provider.uploadFile(remotePath, content);
@@ -222,7 +233,7 @@ export abstract class SyncStrategyBase implements SyncStrategy {
     localPath: string
   ): Promise<void> {
     if (!provider.downloadFileContent) {
-      console.error(`当前提供商不支持直接下载文件内容: ${remotePath}`);
+      this.logger.error(`当前提供商不支持直接下载文件内容: ${remotePath}`);
       return;
     }
     
@@ -233,12 +244,12 @@ export abstract class SyncStrategyBase implements SyncStrategy {
     if (plugin.settings.encryption.enabled && 
         plugin.settings.encryption.key && 
         typeof content === 'string') {
-      console.log(`加密已启用，尝试解密文件内容: ${remotePath}`);
+      this.logger.info(`加密已启用，尝试解密文件内容: ${remotePath}`);
       
       // 检测内容是否可能是加密的Base64字符串
       const isBase64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(content);
       if (!isBase64) {
-        console.log(`内容不是有效的Base64格式，视为未加密: ${remotePath}`);
+        this.logger.info(`内容不是有效的Base64格式，视为未加密: ${remotePath}`);
       } else {
         try {
           // 尝试将内容转换为ArrayBuffer并解密
@@ -248,48 +259,49 @@ export abstract class SyncStrategyBase implements SyncStrategy {
             plugin.settings.encryption.key
           );
           
-          // 转换解密后的内容为字符串
-          content = new TextDecoder().decode(decryptedBuffer);
-          console.log(`解密成功: ${remotePath}`);
+          // 解密成功，将二进制内容转换为文本
+          const decryptedText = new TextDecoder().decode(decryptedBuffer);
+          
+          // 写入到本地文件
+          await plugin.app.vault.adapter.write(localPath, decryptedText);
+          this.logger.info(`文件解密并写入成功: ${localPath}`);
+          return;
         } catch (decryptError) {
-          console.error(`解密失败，可能文件未加密: ${remotePath}`, decryptError);
-          // 如果解密失败，使用原始内容（可能文件本来就未加密）
-          console.log(`使用原始内容: ${remotePath}`);
+          // 解密失败，可能是未加密或加密格式不正确
+          this.logger.warning(`解密失败，使用原始内容: ${remotePath}`, decryptError);
         }
       }
-    } else if (!plugin.settings.encryption.enabled) {
-      console.log(`加密未启用，不尝试解密: ${remotePath}`);
     }
     
-    // 写入到本地
+    // 如果未加密或解密失败，直接使用原始内容写入文件
     if (typeof content === 'string') {
       await plugin.app.vault.adapter.write(localPath, content);
-      console.log(`文件已写入本地: ${localPath}`);
-    } else {
+    } else if (content instanceof ArrayBuffer) {
       await plugin.app.vault.adapter.writeBinary(localPath, content);
-      console.log(`二进制文件已写入本地: ${localPath}`);
+    } else {
+      this.logger.error(`无法处理的内容类型: ${typeof content}, ${remotePath}`);
     }
   }
   
   /**
    * 将ArrayBuffer转换为Base64字符串
    * @protected
-   * @param buffer ArrayBuffer数据
-   * @returns Base64编码的字符串
-   * @author Bing
+   * @param buffer ArrayBuffer
+   * @returns Base64字符串
    */
   protected async arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
-    // 在Web环境中使用原生方法
+    // 在浏览器环境中
     const blob = new Blob([buffer]);
-    const reader = new FileReader();
-    return new Promise<string>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
-        // 移除data URL前缀
-        const base64 = dataUrl.split(',')[1];
+        const base64 = dataUrl.substr(dataUrl.indexOf(',') + 1);
         resolve(base64);
       };
-      reader.onerror = reject;
+      reader.onerror = () => {
+        reject(new Error('ArrayBuffer转Base64失败'));
+      };
       reader.readAsDataURL(blob);
     });
   }
@@ -297,24 +309,23 @@ export abstract class SyncStrategyBase implements SyncStrategy {
   /**
    * 将Base64字符串转换为ArrayBuffer
    * @protected
-   * @param base64 Base64编码的字符串
-   * @returns ArrayBuffer数据
-   * @author Bing
+   * @param base64 Base64字符串
+   * @returns ArrayBuffer
    */
   protected async base64ToArrayBuffer(base64: string): Promise<ArrayBuffer> {
-    // 检查字符串是否是Base64格式
-    const isBase64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(base64);
-    if (!isBase64) {
-      // 不是Base64，可能是普通文本，直接返回文本的ArrayBuffer
-      return new TextEncoder().encode(base64).buffer;
+    // 在Node.js环境中（Obsidian桌面版）
+    try {
+      // 尝试使用fetch API标准方法
+      const response = await fetch(`data:application/octet-stream;base64,${base64}`);
+      return await response.arrayBuffer();
+    } catch (error) {
+      // 备选方法
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
     }
-    
-    // 是Base64，解码
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes.buffer;
   }
 } 

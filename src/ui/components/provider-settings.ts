@@ -1,6 +1,18 @@
 import { Setting } from 'obsidian';
 import { PluginSettings } from '@models/plugin-settings';
 import CloudSyncPlugin from '@main';
+import { ModuleLogger } from '@services/log/log-service';
+
+// 模块级别的日志记录器
+let logger: ModuleLogger | null = null;
+
+/**
+ * 配置模块日志记录器
+ * @param moduleLogger 日志记录器实例
+ */
+export function configureProviderSettingsLogger(moduleLogger: ModuleLogger): void {
+  logger = moduleLogger;
+}
 
 /**
  * 创建云盘提供商选择部分
@@ -16,6 +28,11 @@ export function createCloudProvidersSection(
   tempSettings: PluginSettings,
   displayFunc: () => Promise<void>
 ): void {
+  // 初始化日志记录器，如果尚未初始化
+  if (!logger && plugin.logService) {
+    logger = plugin.logService.getModuleLogger('ProviderSettings');
+  }
+  
   const providersSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
   
   providersSection.createEl('h3', { text: '云盘同步' });
@@ -28,12 +45,12 @@ export function createCloudProvidersSection(
       .setValue(tempSettings.enabledProviders.includes('webdav'))
       .onChange(async (value) => {
         if (value) {
-          console.log('WebDAV开关打开，开始配置...');
+          logger?.info('WebDAV开关打开，开始配置...');
           
           // 添加WebDAV作为启用的提供商
           if (!tempSettings.enabledProviders.includes('webdav')) {
             tempSettings.enabledProviders.push('webdav');
-            console.log('将WebDAV添加到已启用提供商列表');
+            logger?.info('将WebDAV添加到已启用提供商列表');
           }
           
           // 初始化WebDAV设置
@@ -45,37 +62,37 @@ export function createCloudProvidersSection(
               serverUrl: '',
               syncPath: ''
             };
-            console.log('初始化WebDAV设置对象');
+            logger?.info('初始化WebDAV设置对象');
           } else {
             tempSettings.providerSettings.webdav.enabled = true;
-            console.log('将WebDAV标记为已启用');
+            logger?.info('将WebDAV标记为已启用');
           }
           
           // 不再强制启用全局同步开关，尊重用户设置
-          console.log('WebDAV已启用，但不自动开启全局同步');
+          logger?.info('WebDAV已启用，但不自动开启全局同步');
         } else {
-          console.log('WebDAV开关关闭，开始清理...');
+          logger?.info('WebDAV开关关闭，开始清理...');
           
           // 从启用的提供商中移除WebDAV
           tempSettings.enabledProviders = tempSettings.enabledProviders.filter(p => p !== 'webdav');
-          console.log('从已启用提供商列表中移除WebDAV');
+          logger?.info('从已启用提供商列表中移除WebDAV');
           
           // 禁用WebDAV设置
           if (tempSettings.providerSettings.webdav) {
             tempSettings.providerSettings.webdav.enabled = false;
-            console.log('将WebDAV标记为未启用');
+            logger?.info('将WebDAV标记为未启用');
           }
           
           // 移除以下注释中的代码，不再自动关闭全局同步开关
           // 如果没有其他启用的提供商，自动关闭全局同步开关
           // if (tempSettings.enabledProviders.length === 0) {
-          //   console.log('没有启用的提供商，自动关闭全局同步开关');
+          //   logger?.info('没有启用的提供商，自动关闭全局同步开关');
           //   tempSettings.enableSync = false;
           // }
         }
         
         // 保存设置
-        console.log('保存WebDAV设置更改并初始化提供商...');
+        logger?.info('保存WebDAV设置更改并初始化提供商...');
         await plugin.saveSettings(tempSettings);
         
         // 刷新界面

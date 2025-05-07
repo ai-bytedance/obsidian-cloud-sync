@@ -3,6 +3,7 @@ import { StorageProvider } from '@providers/common/storage-provider';
 import { WebDAVSettings } from '@models/plugin-settings';
 import { GenericWebDAVVendor } from './vendors/generic-vendor';
 import { JianguoyunWebDAVVendor } from './vendors/jianguoyun-vendor';
+import CloudSyncPlugin from '@main';
 
 /**
  * WebDAV提供商工厂类
@@ -35,17 +36,18 @@ export class WebDAVFactory {
    * 创建WebDAV提供商实例
    * @param config WebDAV配置
    * @param app Obsidian应用实例
+   * @param plugin 可选，插件实例，用于获取日志服务
    * @returns WebDAV提供商实例
    */
-  static createProvider(config: WebDAVSettings, app: App): StorageProvider {
+  static createProvider(config: WebDAVSettings, app: App, plugin?: CloudSyncPlugin): StorageProvider {
     const providerType = this.identifyProviderType(config.serverUrl);
     
     // 根据类型创建对应的提供商
     switch (providerType) {
       case 'jianguoyun':
-        return new JianguoyunWebDAVVendor(config, app);
+        return new JianguoyunWebDAVVendor(config, app, plugin);
       default:
-        return new GenericWebDAVVendor(config, app);
+        return new GenericWebDAVVendor(config, app, plugin);
     }
   }
 } 

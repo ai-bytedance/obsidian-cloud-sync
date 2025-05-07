@@ -1,6 +1,7 @@
 import CloudSyncPlugin from '@main';
 import { TFile, TAbstractFile, TFolder, Vault } from 'obsidian';
 import { SyncFileFilter } from '@src/utils/sync-file-filter';
+import { ModuleLogger } from '@services/log/log-service';
 
 /**
  * 保管库文件信息接口
@@ -21,6 +22,7 @@ interface VaultFileInfo {
  */
 export class VaultFileManager {
   private vault: Vault;
+  private logger: ModuleLogger;
 
   /**
    * 构造函数
@@ -29,6 +31,7 @@ export class VaultFileManager {
    */
   constructor(private plugin: CloudSyncPlugin) {
     this.vault = this.plugin.app.vault;
+    this.logger = this.plugin.logService.getModuleLogger('VaultFileManager');
   }
 
   /**
@@ -42,7 +45,7 @@ export class VaultFileManager {
 
     for (const file of files) {
       // 检查文件是否应该被同步
-      if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
+      if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
         continue;
       }
 
@@ -57,7 +60,7 @@ export class VaultFileManager {
           type: 'file'
         });
       } catch (error) {
-        console.error(`读取文件 ${file.path} 失败:`, error);
+        this.logger.error(`读取文件 ${file.path} 失败:`, error);
       }
     }
 
@@ -81,7 +84,7 @@ export class VaultFileManager {
     this.vault.getAllLoadedFiles().forEach(file => {
       if (file instanceof TFolder && file.path !== '/') {
         // 检查文件夹是否应该被同步
-        if (!SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
+        if (!SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
           folderSet.add(file.path);
         }
       }

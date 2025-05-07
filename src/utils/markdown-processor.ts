@@ -3,6 +3,18 @@
  * 用于处理Markdown文件中的Obsidian特有格式
  * @author Bing
  */
+import { ModuleLogger } from '@services/log/log-service';
+
+// 模块级日志记录器
+let logger: ModuleLogger | null = null;
+
+/**
+ * 配置Markdown处理器的日志记录器
+ * @param moduleLogger 日志记录器
+ */
+export function configureMarkdownProcessor(moduleLogger: ModuleLogger): void {
+  logger = moduleLogger;
+}
 
 /**
  * 处理Markdown内容，转换Obsidian内部链接为标准Markdown格式
@@ -14,164 +26,183 @@
 export function processMarkdownContent(content: string, basePath: string = '', serverType: string = 'default'): string {
   // 检查内容是否为字符串
   if (typeof content !== 'string') {
-    console.error('处理Markdown内容失败：内容不是字符串');
-    return content;
+    logger?.error('处理Markdown内容失败：内容不是字符串', { content: typeof content });
+    return '';
   }
 
-  console.log('开始处理Markdown内容，基础路径:', basePath, '服务器类型:', serverType);
-
-  // 处理Obsidian的内部链接格式 ![[image.png]] -> ![](image.png)
-  // 匹配图片链接模式，扩展以支持更多图片格式
-  const obsidianImagePattern = /!\[\[(.*?\.(?:png|jpg|jpeg|gif|svg|webp))\]\]/g;
-  
-  // 替换为标准Markdown图片链接格式
-  let processedContent = content.replace(obsidianImagePattern, (match, imagePath) => {
-    console.log(`处理图片链接: ${match} -> ${imagePath}`);
+  try {
+    logger?.debug('开始处理Markdown内容', { contentLength: content.length, basePath, serverType });
     
-    // 处理可能的路径分隔符问题（替换反斜杠为正斜杠）
-    const normalizedImagePath = imagePath.replace(/\\/g, '/');
-    
-    // 获取图片文件名（不包含路径）
-    const imageName = normalizedImagePath.split('/').pop() || normalizedImagePath;
-    
-    // 检查是否是粘贴图片格式（Pasted image ...）
-    const isPastedImage = /Pasted image \d+\.\w+/i.test(imageName);
-    
-    // 构建最终的图片URL
-    let finalImagePath;
-    if (isPastedImage) {
-      // 对于粘贴图片，优先使用仅包含文件名的路径，避免路径中混入不必要的前缀
-      console.log(`检测到粘贴图片: ${imageName}`);
+    // 替换Obsidian内部链接格式的图片引用
+    // 例如 ![[image.png]] -> ![](attachments/image.png)
+    let processedContent = content.replace(/!\[\[(.*?)\]\]/g, (match, fileName) => {
+      // 提取文件名，并检查是否有替代文本
+      const parts = fileName.split('|');
+      const actualFileName = parts[0].trim();
+      const altText = parts.length > 1 ? parts[1].trim() : actualFileName;
       
-      // 处理文件名，确保URL兼容性
-      // 去除文件名前面的路径分隔符
-      let cleanImageName = imageName.replace(/^\/+/, '');
+      // 构建标准Markdown图片链接格式
+      // 根据服务器类型和基础路径，可能需要特殊处理URL
+      let attachmentPath = '';
       
-      // 重要：将文件名中的空格替换为%20，以确保URL兼容性
-      const encodedImageName = cleanImageName.replace(/ /g, '%20');
-      
-      console.log(`处理后的图片名: ${cleanImageName} (URL编码后: ${encodedImageName})`);
-      
-      // 根据服务器类型选择最佳路径格式
-      if (serverType === 'webdav' || serverType === 'github') {
-        // WebDAV和GitHub通常需要URL编码的路径
-        finalImagePath = basePath ? `${basePath}/${encodedImageName}` : encodedImageName;
-        console.log(`为${serverType}服务器使用URL编码路径: ${finalImagePath}`);
-      } else {
-        // 对于其他服务器或默认情况，使用不带URL编码的路径
-        // 大多数Markdown渲染器能正确处理带空格的路径
-        finalImagePath = basePath ? `${basePath}/${cleanImageName}` : cleanImageName;
-        console.log(`使用标准路径: ${finalImagePath}`);
+      // 处理相对路径
+      if (basePath) {
+        attachmentPath = basePath.endsWith('/') ? basePath : basePath + '/';
       }
       
-      console.log(`粘贴图片处理后路径: ${finalImagePath}`);
-    } else {
-      // 标准图片处理
-      // 检查是否包含附件目录前缀
-      const attachmentPrefixes = ['attachments/', 'assets/', 'images/', 'img/', 'resources/'];
-      let hasAttachmentPrefix = false;
-      let prefixUsed = '';
+      // 添加附件目录前缀（如果文件名中没有路径）
+      if (!actualFileName.includes('/')) {
+        attachmentPath += 'attachments/';
+      }
       
-      for (const prefix of attachmentPrefixes) {
-        if (normalizedImagePath.startsWith(prefix)) {
-          hasAttachmentPrefix = true;
-          prefixUsed = prefix;
+      const imageUrl = attachmentPath + actualFileName;
+      logger?.debug('转换Obsidian内部图片链接', { 
+        from: match, 
+        to: `![${altText}](${imageUrl})`,
+        fileName: actualFileName,
+        altText
+      });
+      
+      return `![${altText}](${imageUrl})`;
+    });
+    
+    // 替换Obsidian内部链接格式的文件引用
+    // 例如 [[file.md]] -> [file](file.md)
+    processedContent = processedContent.replace(/\[\[(.*?)\]\]/g, (match, linkText) => {
+      // 提取链接文本和显示文本
+      const parts = linkText.split('|');
+      const link = parts[0].trim();
+      const display = parts.length > 1 ? parts[1].trim() : link;
+      
+      // 检查是否是外部链接（以http开头）
+      if (link.startsWith('http')) {
+        logger?.debug('跳过外部链接的转换', { link });
+        return `[${display}](${link})`;
+      }
+      
+      // 构建标准Markdown链接
+      const normalizedLink = link.replace(/ /g, '%20');
+      logger?.debug('转换Obsidian内部文件链接', { 
+        from: match, 
+        to: `[${display}](${normalizedLink})`,
+        link,
+        display
+      });
+      
+      return `[${display}](${normalizedLink})`;
+    });
+    
+    // 处理高亮标记
+    // 例如 ==highlighted text== -> <mark>highlighted text</mark>
+    processedContent = processedContent.replace(/==(.*?)==/g, (match, text) => {
+      logger?.debug('转换高亮标记', { from: match, to: `<mark>${text}</mark>` });
+      return `<mark>${text}</mark>`;
+    });
+    
+    logger?.debug('Markdown内容处理完成', { 
+      originalLength: content.length, 
+      processedLength: processedContent.length
+    });
+    
+    return processedContent;
+  } catch (error) {
+    logger?.error('处理Markdown内容时发生错误', { error: error instanceof Error ? error.message : String(error) });
+    return content; // 出错时返回原始内容
+  }
+}
+
+/**
+ * 还原标准Markdown格式为Obsidian内部链接格式
+ * @param content 标准Markdown格式的内容
+ * @param basePath 基础路径（用于移除图片链接中的前缀）
+ * @returns 还原后的Obsidian格式内容
+ */
+export function restoreObsidianFormat(content: string, basePath: string = ''): string {
+  if (typeof content !== 'string') {
+    logger?.error('还原Obsidian格式失败：内容不是字符串', { content: typeof content });
+    return '';
+  }
+  
+  try {
+    logger?.debug('开始还原Obsidian格式', { contentLength: content.length, basePath });
+    
+    // 移除可能的基础路径前缀
+    let normalizedBasePath = '';
+    if (basePath) {
+      normalizedBasePath = basePath.endsWith('/') ? basePath : basePath + '/';
+    }
+    
+    // 还原图片链接 ![alt](path/to/image.png) -> ![[image.png]]
+    let restoredContent = content.replace(/!\[(.*?)]\((.*?)\)/g, (match, alt, url) => {
+      // 移除URL中的基础路径和附件目录前缀
+      let cleanUrl = url;
+      if (normalizedBasePath && cleanUrl.startsWith(normalizedBasePath)) {
+        cleanUrl = cleanUrl.substring(normalizedBasePath.length);
+      }
+      
+      // 移除"attachments/"等常见附件目录前缀
+      const attachmentsPrefixes = ['attachments/', 'assets/', 'images/', 'img/', 'resources/'];
+      for (const prefix of attachmentsPrefixes) {
+        if (cleanUrl.startsWith(prefix)) {
+          cleanUrl = cleanUrl.substring(prefix.length);
           break;
         }
       }
       
-      // 如果basePath已经包含了附件目录，并且路径也以附件目录开头，则移除重复
-      if (hasAttachmentPrefix && basePath && 
-          attachmentPrefixes.some(prefix => basePath.endsWith(prefix.slice(0, -1)))) {
-        console.log(`检测到附件路径重复，移除前缀: ${prefixUsed}`);
-        const imagePathWithoutPrefix = normalizedImagePath.substring(prefixUsed.length);
-        
-        // 处理空格
-        if (serverType === 'webdav' || serverType === 'github') {
-          // 对特定服务器进行URL编码
-          const encodedPath = imagePathWithoutPrefix.replace(/ /g, '%20');
-          finalImagePath = `${basePath}/${encodedPath}`;
-        } else {
-          finalImagePath = `${basePath}/${imagePathWithoutPrefix}`;
-        }
-      } else {
-        // 处理空格
-        if (serverType === 'webdav' || serverType === 'github') {
-          // 对特定服务器进行URL编码
-          const encodedPath = normalizedImagePath.replace(/ /g, '%20');
-          finalImagePath = basePath ? `${basePath}/${encodedPath}` : encodedPath;
-        } else {
-          finalImagePath = basePath ? `${basePath}/${normalizedImagePath}` : normalizedImagePath;
-        }
+      // 判断是否需要添加替代文本（如果与文件名不同）
+      const fileName = cleanUrl.split('/').pop() || '';
+      const obsidianLink = alt !== fileName && alt !== cleanUrl ? `![[${cleanUrl}|${alt}]]` : `![[${cleanUrl}]]`;
+      
+      logger?.debug('还原Markdown图片链接为Obsidian格式', { 
+        from: match, 
+        to: obsidianLink,
+        alt,
+        url,
+        cleanUrl
+      });
+      
+      return obsidianLink;
+    });
+    
+    // 还原普通链接 [text](link) -> [[link|text]] 或 [[link]]
+    restoredContent = restoredContent.replace(/\[([^\]]*?)]\(([^)]*?)\)/g, (match, text, link) => {
+      // 忽略外部链接（http或https开头）
+      if (link.startsWith('http')) {
+        logger?.debug('跳过外部链接的还原', { link });
+        return match;
       }
-    }
+      
+      // 还原URL编码的空格
+      const decodedLink = link.replace(/%20/g, ' ');
+      
+      // 判断是否需要添加显示文本（如果与链接不同）
+      const obsidianLink = text !== decodedLink ? `[[${decodedLink}|${text}]]` : `[[${decodedLink}]]`;
+      
+      logger?.debug('还原Markdown链接为Obsidian格式', { 
+        from: match, 
+        to: obsidianLink,
+        text,
+        link,
+        decodedLink
+      });
+      
+      return obsidianLink;
+    });
     
-    console.log(`图片链接转换: ${match} -> ![](${finalImagePath})`);
+    // 还原高亮标记 <mark>text</mark> -> ==text==
+    restoredContent = restoredContent.replace(/<mark>(.*?)<\/mark>/g, (match, text) => {
+      logger?.debug('还原高亮标记为Obsidian格式', { from: match, to: `==${text}==` });
+      return `==${text}==`;
+    });
     
-    // 使用标准Markdown图片语法
-    return `![](${finalImagePath})`;
-  });
-
-  // 处理Obsidian的内链附件格式 ![[file.pdf]] -> [file.pdf](file.pdf)
-  const obsidianAttachmentPattern = /!\[\[(.*?\.(?:pdf|doc|docx|xls|xlsx|csv|txt))\]\]/g;
-  
-  processedContent = processedContent.replace(obsidianAttachmentPattern, (match, filePath) => {
-    // 处理可能的路径分隔符问题
-    const normalizedFilePath = filePath.replace(/\\/g, '/');
+    logger?.debug('Obsidian格式还原完成', { 
+      originalLength: content.length, 
+      restoredLength: restoredContent.length
+    });
     
-    // 获取文件名（不包含路径）
-    const fileName = normalizedFilePath.split('/').pop() || normalizedFilePath;
-    
-    // 处理特定服务器的URL编码需求
-    let processedFilePath;
-    if (serverType === 'webdav' || serverType === 'github') {
-      // 使用URL编码的路径
-      const encodedFileName = fileName.replace(/ /g, '%20');
-      const encodedFilePath = normalizedFilePath.replace(/ /g, '%20');
-      processedFilePath = basePath ? `${basePath}/${encodedFilePath}` : encodedFilePath;
-      console.log(`为${serverType}服务器使用URL编码附件路径: ${processedFilePath}`);
-    } else {
-      // 使用标准路径
-      processedFilePath = basePath ? `${basePath}/${normalizedFilePath}` : normalizedFilePath;
-    }
-    
-    console.log(`附件链接转换: ${match} -> [${fileName}](${processedFilePath})`);
-    
-    // 使用标准Markdown链接语法
-    return `[${fileName}](${processedFilePath})`;
-  });
-
-  // 处理Obsidian的内部链接格式 [[note]] -> [note](note.md)
-  const obsidianLinkPattern = /\[\[(.*?)\]\]/g;
-  
-  processedContent = processedContent.replace(obsidianLinkPattern, (match, linkPath) => {
-    // 处理链接可能包含的别名
-    const parts = linkPath.split('|');
-    const path = parts[0].trim();
-    const alias = parts.length > 1 ? parts[1].trim() : path;
-    
-    // 处理可能的路径分隔符问题
-    const normalizedPath = path.replace(/\\/g, '/');
-    
-    // 如果链接没有扩展名，添加.md扩展名
-    const fullPath = normalizedPath.includes('.') ? normalizedPath : `${normalizedPath}.md`;
-    
-    // 处理特定服务器的URL编码需求
-    let processedLinkPath;
-    if (serverType === 'webdav' || serverType === 'github') {
-      // 使用URL编码的路径
-      const encodedPath = fullPath.replace(/ /g, '%20');
-      processedLinkPath = basePath ? `${basePath}/${encodedPath}` : encodedPath;
-    } else {
-      // 使用标准路径
-      processedLinkPath = basePath ? `${basePath}/${fullPath}` : fullPath;
-    }
-    
-    console.log(`内部链接转换: ${match} -> [${alias}](${processedLinkPath})`);
-    
-    // 使用标准Markdown链接语法
-    return `[${alias}](${processedLinkPath})`;
-  });
-
-  return processedContent;
+    return restoredContent;
+  } catch (error) {
+    logger?.error('还原Obsidian格式时发生错误', { error: error instanceof Error ? error.message : String(error) });
+    return content; // 出错时返回原始内容
+  }
 } 

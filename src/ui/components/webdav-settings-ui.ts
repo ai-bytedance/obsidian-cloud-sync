@@ -2,6 +2,18 @@ import { Setting } from 'obsidian';
 import { PluginSettings, RequestDelayLevel } from '@models/plugin-settings';
 import CloudSyncPlugin from '@main';
 import { WebDAVProvider } from '@providers/webdav/webdav-provider';
+import { ModuleLogger } from '@services/log/log-service';
+
+// 模块级别的日志记录器
+let logger: ModuleLogger | null = null;
+
+/**
+ * 配置模块日志记录器
+ * @param moduleLogger 日志记录器实例
+ */
+export function configureWebDAVSettingsLogger(moduleLogger: ModuleLogger): void {
+  logger = moduleLogger;
+}
 
 /**
  * 创建WebDAV设置部分
@@ -21,6 +33,11 @@ export function createWebDAVSection(
   setTestingConnection: (value: boolean) => void,
   displayFunc?: () => Promise<void>
 ): void {
+  // 初始化日志记录器，如果尚未初始化
+  if (!logger && plugin.logService) {
+    logger = plugin.logService.getModuleLogger('WebDAVSettings');
+  }
+  
   const webdavSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
   
   webdavSection.createEl('h3', { text: 'WebDAV设置' });
@@ -49,22 +66,22 @@ export function createWebDAVSection(
     
     if (!webdavSettings?.serverUrl) {
       missingFields.push('服务器URL');
-      console.log('WebDAV配置进行中：缺少服务器URL');
+      logger?.info('WebDAV配置进行中：缺少服务器URL');
     }
     
     if (!webdavSettings?.username) {
       missingFields.push('用户名');
-      console.log('WebDAV配置进行中：缺少用户名');
+      logger?.info('WebDAV配置进行中：缺少用户名');  
     }
     
     if (!webdavSettings?.password) {
       missingFields.push('密码');
-      console.log('WebDAV配置进行中：缺少密码');
+      logger?.info('WebDAV配置进行中：缺少密码');  
     }
     
     // 如果有缺失字段，提前返回不执行初始化
     if (missingFields.length > 0) {
-      console.log(`WebDAV配置尚未完成，还需填写: ${missingFields.join(', ')}`);
+      logger?.info(`WebDAV配置尚未完成，还需填写: ${missingFields.join(', ')}`);
       
       // 只有一个字段时，提示用户完成配置
       if (webdavSettings?.serverUrl && (missingFields.length <= 2)) {
@@ -79,23 +96,23 @@ export function createWebDAVSection(
     }
     
     // 配置完整，继续初始化
-    console.log('WebDAV配置已完整，准备初始化提供商...');
+    logger?.info('WebDAV配置已完整，准备初始化提供商...'); 
     
     // 确保WebDAV在启用列表中
     if (!tempSettings.enabledProviders.includes('webdav')) {
-      console.log('将WebDAV添加到启用列表');
+      logger?.info('将WebDAV添加到启用列表');
       tempSettings.enabledProviders.push('webdav');
     }
     
     // 确保WebDAV被标记为启用
     if (webdavSettings) {
-      console.log('确保WebDAV标记为已启用');
+      logger?.info('确保WebDAV标记为已启用');
       webdavSettings.enabled = true;
     }
     
     // 确保全局同步开关开启
     if (!tempSettings.enableSync) {
-      console.log('启用全局同步开关');
+      logger?.info('启用全局同步开关');
       tempSettings.enableSync = true;
     }
     
@@ -104,18 +121,18 @@ export function createWebDAVSection(
     
     try {
       // 强制初始化提供商
-      console.log('强制初始化提供商...');
+      logger?.info('强制初始化提供商...');
       const success = await plugin.ensureProvidersInitialized(true);
       
       if (success) {
-        console.log('WebDAV提供商初始化成功，无需重启');
+        logger?.info('WebDAV提供商初始化成功，无需重启');
         plugin.notificationManager.show('webdav-init', 'WebDAV配置已成功激活，可以开始同步', 4000);
       } else {
-        console.log('WebDAV配置已保存，但需要时间初始化，将在同步时自动连接');
+        logger?.info('WebDAV配置已保存，但需要时间初始化，将在同步时自动连接');
         plugin.notificationManager.show('webdav-init', 'WebDAV配置已保存，将在执行同步时自动连接', 5000);
       }
     } catch (error) {
-      console.error('初始化WebDAV提供商时出错:', error);
+      logger?.error('初始化WebDAV提供商时出错:', error); 
       plugin.notificationManager.show('webdav-init-error', '激活WebDAV配置时出错，请尝试重启Obsidian', 6000);
     }
   };
@@ -298,13 +315,13 @@ export function createWebDAVSection(
           // 如果URL不为空且没有协议，添加https://
           if (formattedUrl && !formattedUrl.match(/^https?:\/\//i)) {
             formattedUrl = 'https://' + formattedUrl;
-            console.log('URL自动添加https://', formattedUrl);
+            logger?.info('URL自动添加https://', formattedUrl); 
           }
           
           // 确保URL以/结尾
           if (formattedUrl && !formattedUrl.endsWith('/')) {
             formattedUrl = formattedUrl + '/';
-            console.log('URL自动添加末尾斜杠', formattedUrl);
+            logger?.info('URL自动添加末尾斜杠', formattedUrl); 
           }
           
           // 如果格式化后的URL与输入不同，更新输入框
@@ -323,7 +340,7 @@ export function createWebDAVSection(
           
           // 安全检查：如果使用http协议，提示不安全
           if (formattedUrl && formattedUrl.toLowerCase().startsWith('http://')) {
-            console.log('检测到不安全的HTTP连接');
+            logger?.info('检测到不安全的HTTP连接');  
             plugin.notificationManager.show(
               'webdav-http-warning', 
               '警告：您正在使用不安全的HTTP连接，建议使用HTTPS以保护您的数据', 
@@ -331,14 +348,14 @@ export function createWebDAVSection(
             );
           }
           
-          console.log('URL检查:', {oldUrl, newUrl, oldHasJianguoyun, hasJianguoyun});
-          
+          logger?.info('URL检查:', {oldUrl, newUrl, oldHasJianguoyun, hasJianguoyun});
+
           // 创建一个指向特定设置部分的变量
           const providerSpecificSection = webdavSection.querySelector('.cloud-sync-provider-specific-settings');
           
           // 处理UI更新
           if (oldHasJianguoyun !== hasJianguoyun && providerSpecificSection) {
-            console.log('坚果云状态变化，将刷新界面');
+            logger?.info('坚果云状态变化，将刷新界面');
             // 当坚果云状态变化时，使用防抖处理完整刷新
             if (timerId) {
               clearTimeout(timerId);
@@ -347,21 +364,21 @@ export function createWebDAVSection(
             timerId = setTimeout(() => {
               // 使用传入的回调函数进行界面刷新
               if (displayFunc) {
-                console.log('使用传入的回调函数刷新界面');
+                logger?.info('使用传入的回调函数刷新界面');
                 displayFunc().catch(error => {
-                  console.error('界面刷新失败:', error);
+                  logger?.error('界面刷新失败:', error);
                 });
               } else if (plugin.settingTab && typeof plugin.settingTab.display === 'function') {
-                console.log('使用settingTab.display刷新界面');
+                logger?.info('使用settingTab.display刷新界面');
                 plugin.settingTab.display().catch(error => {
-                  console.error('界面刷新失败:', error);
+                  logger?.error('界面刷新失败:', error);
                 });
               } else {
-                console.warn('无法刷新界面：找不到可用的刷新函数');
+                logger?.warning('无法刷新界面：找不到可用的刷新函数');
               }
             }, 1000); // 用户停止输入1秒后再刷新
           } else if (!hasJianguoyun && value && providerSpecificSection) {
-            console.log('非坚果云URL，更新提示');
+            logger?.info('非坚果云URL，更新提示');
             // 对于非坚果云URL，动态更新提示而不刷新整个页面
             
             // 清理之前的提示（如果存在）
@@ -385,7 +402,7 @@ export function createWebDAVSection(
               }).innerHTML = '提示：若使用坚果云，输入包含<span class="highlight">jianguoyun.com</span>的URL可启用优化选项';
             }
           } else if (!value && providerSpecificSection) {
-            console.log('URL为空，清除提示');
+            logger?.info('URL为空，清除提示');
             // 当URL为空时清除提示
             if (providerSpecificSection instanceof HTMLElement) {
               providerSpecificSection.empty();
@@ -459,18 +476,18 @@ export function createWebDAVSection(
           if (plugin.storageProviders && plugin.storageProviders.has('webdav')) {
             const provider = plugin.storageProviders.get('webdav');
             if (provider) {
-              console.log('尝试更新现有WebDAV提供商的账户类型设置');
+              logger?.info('尝试更新现有WebDAV提供商的账户类型设置');
               try {
                 // @ts-ignore - 使用动态访问
                 if (typeof provider.updateAccountType === 'function') {
                   // @ts-ignore
                   await provider.updateAccountType(value === 'true');
-                  console.log('成功更新WebDAV提供商的账户类型设置');
+                  logger?.info('成功更新WebDAV提供商的账户类型设置');
                 } else {
-                  console.warn('WebDAV提供商不支持动态更新账户类型设置');
+                  logger?.warning('WebDAV提供商不支持动态更新账户类型设置');
                 }
               } catch (e) {
-                console.warn('无法更新现有WebDAV提供商的账户类型设置:', e);
+                logger?.warning('无法更新现有WebDAV提供商的账户类型设置:', e);
               }
             }
           }
@@ -502,7 +519,7 @@ export function createWebDAVSection(
           // 记录延迟设置变更
           const oldDelay = tempSettings.providerSettings.webdav.requestDelay || 'normal';
           const newDelay = value as RequestDelayLevel;
-          console.log(`坚果云请求延迟设置更改: ${oldDelay} -> ${newDelay}`);
+          logger?.info(`坚果云请求延迟设置更改: ${oldDelay} -> ${newDelay}`);
           
           tempSettings.providerSettings.webdav.requestDelay = newDelay;
           await plugin.saveSettings(tempSettings);
@@ -511,18 +528,18 @@ export function createWebDAVSection(
           if (plugin.storageProviders && plugin.storageProviders.has('webdav')) {
             const provider = plugin.storageProviders.get('webdav');
             if (provider) {
-              console.log('尝试更新现有WebDAV提供商的请求延迟设置');
+              logger?.info('尝试更新现有WebDAV提供商的请求延迟设置');
               try {
                 // @ts-ignore - 使用动态访问
                 if (typeof provider.updateRequestDelay === 'function') {
                   // @ts-ignore
                   await provider.updateRequestDelay(newDelay);
-                  console.log('成功更新WebDAV提供商的请求延迟设置');
+                  logger?.info('成功更新WebDAV提供商的请求延迟设置');
                 } else {
-                  console.warn('WebDAV提供商不支持动态更新请求延迟设置');
+                  logger?.warning('WebDAV提供商不支持动态更新请求延迟设置');
                 }
               } catch (e) {
-                console.warn('无法更新现有WebDAV提供商的请求延迟设置:', e);
+                logger?.warning('无法更新现有WebDAV提供商的请求延迟设置:', e);
               }
             }
           }
@@ -604,7 +621,7 @@ export function createWebDAVSection(
         button.setDisabled(true);
         
         try {
-          console.log('尝试连接到WebDAV服务器...');
+          logger?.info('尝试连接到WebDAV服务器...');
           
           // 验证URL格式
           const serverUrl = webdavSettings.serverUrl;
@@ -625,7 +642,7 @@ export function createWebDAVSection(
           try {
             connected = await provider.connect();
           } catch (connectError) {
-            console.error('WebDAV连接失败:', connectError);
+            logger?.error('WebDAV连接失败:', connectError);
             
             // 提取错误信息
             let errorMessage = connectError.message || '未知错误';
@@ -649,38 +666,38 @@ export function createWebDAVSection(
               // 测试获取文件列表和配额信息
               try {
                 await provider.listFiles('/');
-                console.log('文件列表获取成功');
+                logger?.info('文件列表获取成功');
               } catch (listError) {
-                console.warn('获取文件列表失败，但连接成功:', listError);
+                logger?.warning('获取文件列表失败，但连接成功:', listError);
                 // 如果获取列表失败但连接成功，继续，不中断测试
               }
               
               // 测试获取配额信息
               try {
                 const quota = await provider.getQuota();
-                console.log('配额信息:', quota);
+                logger?.info('配额信息:', quota);
               } catch (quotaError) {
-                console.warn('获取配额信息失败，但连接成功:', quotaError);
+                logger?.warning('获取配额信息失败，但连接成功:', quotaError);
                 // 如果获取配额信息失败但连接成功，继续，不中断测试
               }
               
               plugin.notificationManager.show('webdav-complete', '连接成功！WebDAV 服务器连接正常', 4000);
             } catch (testError) {
-              console.error('连接成功但功能测试失败:', testError);
+              logger?.error('连接成功但功能测试失败:', testError);
               plugin.notificationManager.show('webdav-error', '连接建立成功，但权限测试失败，请检查WebDAV访问权限', 5000);
             } finally {
               // 测试完成后断开连接
               try {
                 await provider.disconnect();
               } catch (disconnectError) {
-                console.warn('断开连接失败:', disconnectError);
+                logger?.warning('断开连接失败:', disconnectError);
               }
             }
           } else {
             plugin.notificationManager.show('webdav-error', '连接失败，服务器拒绝连接', 5000);
           }
         } catch (error) {
-          console.error('测试WebDAV连接失败:', error);
+          logger?.error('测试WebDAV连接失败:', error);
           plugin.notificationManager.show('webdav-test-error', `测试连接失败: ${error.message || '未知错误'}`, 5000);
         } finally {
           // 重置按钮状态和测试状态

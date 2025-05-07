@@ -3,6 +3,7 @@ import { PluginSettings } from '@models/plugin-settings';
 import { NotificationManager } from '@services/notification/notification-manager';
 import CloudSyncPlugin from '@main';
 import { NetworkService, NetworkType } from '@services/network/network-service';
+import { ModuleLogger } from '@services/log/log-service';
 
 /**
  * 自动同步管理器
@@ -16,6 +17,7 @@ export class AutoSyncManager {
   private isRunning: boolean = false;
   private networkService: NetworkService;
   private networkListener: ((isOnline: boolean, type: NetworkType) => void) | null = null;
+  private logger: ModuleLogger;
 
   /**
    * 构造函数
@@ -30,6 +32,7 @@ export class AutoSyncManager {
     private notificationManager: NotificationManager
   ) {
     this.networkService = NetworkService.getInstance();
+    this.logger = this.plugin.logService.getModuleLogger('AutoSyncManager');
     
     // 添加网络状态变化监听，适应网络检测功能
     this.setupNetworkListener();
@@ -51,7 +54,7 @@ export class AutoSyncManager {
       if (this.plugin.settings.networkDetection && this.isRunning) {
         // 当网络从非WiFi变为WiFi时，或在PC平台从非良好连接变为以太网时，触发同步
         if (isOnline && (type === NetworkType.WIFI || type === NetworkType.ETHERNET)) {
-          console.log(`网络状态变为${type === NetworkType.WIFI ? 'WiFi' : '以太网'}，尝试执行延迟同步`);
+          this.logger.info(`网络状态变为${type === NetworkType.WIFI ? 'WiFi' : '以太网'}，尝试执行延迟同步`);
           // 延迟30秒后执行同步，避免网络切换瞬间的不稳定
           setTimeout(() => {
             // 再次检查状态，确保仍处于自动同步中且仍是良好连接
@@ -76,13 +79,13 @@ export class AutoSyncManager {
   startAutoSync() {
     // 如果自动同步未启用或间隔无效，直接返回
     if (!this.plugin.settings.enableSync || this.plugin.settings.syncInterval <= 0) {
-      console.log('自动同步未启用或间隔无效');
+      this.logger.info('自动同步未启用或间隔无效');
       return;
     }
 
     // 如果已经有定时任务在运行且状态正确，避免重复启动
     if (this.intervalId && this.isRunning) {
-      console.log('自动同步已在运行中，跳过重复启动');
+      this.logger.info('自动同步已在运行中，跳过重复启动');
       return;
     }
 
@@ -103,7 +106,7 @@ export class AutoSyncManager {
     this.isRunning = true;
 
     // 仅在状态实际变化时才输出日志和显示通知
-    console.log(`自动同步已启动，间隔时间: ${this.plugin.settings.syncInterval}分钟`);
+    this.logger.info(`自动同步已启动，间隔时间: ${this.plugin.settings.syncInterval}分钟`);
     this.notificationManager.show('auto-sync-started', `自动同步已启动，间隔时间: ${this.plugin.settings.syncInterval}分钟`, 3000);
   }
 
@@ -130,10 +133,10 @@ export class AutoSyncManager {
     
     // 仅在需要时显示日志和通知
     if (showNotification) {
-      console.log('自动同步已停止');
+      this.logger.info('自动同步已停止');
       this.notificationManager.show('auto-sync-stopped', '自动同步已停止', 3000);
     } else {
-      console.log('自动同步已内部停止（无通知）');
+      this.logger.info('自动同步已内部停止（无通知）');
     }
   }
 
@@ -147,14 +150,14 @@ export class AutoSyncManager {
     try {
       // 如果同步功能已被禁用，停止自动同步
       if (!this.plugin.settings.enableSync) {
-        console.log('同步功能已被禁用，停止自动同步');
+        this.logger.info('同步功能已被禁用，停止自动同步');
         this.stopAutoSync();
         return;
       }
       
       // 如果已有同步正在进行，跳过此次自动同步
       if (this.plugin.syncInProgress) {
-        console.log('有同步操作正在进行，跳过自动同步');
+        this.logger.info('有同步操作正在进行，跳过自动同步');
         return;
       }
       
@@ -163,10 +166,10 @@ export class AutoSyncManager {
         // 使用NetworkService的shouldSync方法来统一判断是否应该同步
         if (!this.networkService.shouldSync(true)) {
           const networkType = this.networkService.getNetworkType();
-          console.log(`当前网络类型为${networkType}，根据网络检测设置跳过自动同步`);
+          this.logger.info(`当前网络类型为${networkType}，根据网络检测设置跳过自动同步`);
           return;
         } else {
-          console.log('网络检测已启用，当前为允许同步的网络类型，继续自动同步');
+          this.logger.info('网络检测已启用，当前为允许同步的网络类型，继续自动同步');
         }
       }
       
@@ -181,16 +184,16 @@ export class AutoSyncManager {
       
       // 如果距离上次同步时间不足指定间隔，则跳过本次同步
       if (this.lastSyncTime > 0 && now - this.lastSyncTime < effectiveInterval) {
-        console.log(`距离上次同步时间不足 ${effectiveInterval/60000} 分钟，跳过本次同步`);
+        this.logger.info(`距离上次同步时间不足 ${effectiveInterval/60000} 分钟，跳过本次同步`);
         return;
       }
 
-      console.log('开始执行自动同步');
+      this.logger.info('开始执行自动同步');
       await this.plugin.manualSync();
       this.lastSyncTime = Date.now();
-      console.log('自动同步完成');
+      this.logger.info('自动同步完成');
     } catch (error) {
-      console.error('自动同步执行出错:', error);
+      this.logger.error('自动同步执行出错:', error);
     }
   }
 

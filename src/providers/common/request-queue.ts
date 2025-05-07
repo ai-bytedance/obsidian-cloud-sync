@@ -1,4 +1,6 @@
 import { RequestRateLimiter } from './request-rate-limiter';
+import { ModuleLogger } from '@services/log/log-service';
+import CloudSyncPlugin from '@main';
 
 /**
  * 请求优先级定义
@@ -34,16 +36,23 @@ export class RequestQueue {
   private isProcessing: boolean = false;
   private isPaused: boolean = false;
   private taskIdCounter: number = 0;
+  private logger: ModuleLogger | null = null;
   
   /**
    * 创建请求队列
    * @param rateLimiter 请求速率限制器
    * @param maxConcurrent 最大并发请求数
+   * @param plugin 插件实例，用于获取日志服务
    */
-  constructor(rateLimiter: RequestRateLimiter, maxConcurrent: number = 2) {
+  constructor(rateLimiter: RequestRateLimiter, maxConcurrent: number = 2, plugin?: CloudSyncPlugin) {
     this.rateLimiter = rateLimiter;
     this.maxConcurrent = maxConcurrent;
-    console.log(`请求队列初始化: 最大并发数=${maxConcurrent}`);
+    
+    if (plugin && plugin.logService) {
+      this.logger = plugin.logService.getModuleLogger('RequestQueue');
+    }
+    
+    this.logger?.info(`请求队列初始化: 最大并发数=${maxConcurrent}`);
   }
   
   /**
@@ -74,7 +83,7 @@ export class RequestQueue {
       // 根据优先级插入队列
       this.insertByPriority(requestTask);
       
-      console.log(`[队列] 添加任务: ${id}, 优先级: ${RequestPriority[priority]}, 队列长度: ${this.queue.length}`);
+      this.logger?.info(`添加任务: ${id}, 优先级: ${RequestPriority[priority]}, 队列长度: ${this.queue.length}`);
       
       // 如果队列处理未运行，启动它
       if (!this.isProcessing && !this.isPaused) {
@@ -126,7 +135,7 @@ export class RequestQueue {
       // 检查速率限制
       if (!this.rateLimiter.canMakeRequest()) {
         const waitTime = this.rateLimiter.getWaitTime();
-        console.log(`[队列] 等待速率限制: ${waitTime}ms, 当前计数: ${this.rateLimiter.getRequestCount()}/${this.rateLimiter.getLimit()}`);
+        this.logger?.debug(`等待速率限制: ${waitTime}ms, 当前计数: ${this.rateLimiter.getRequestCount()}/${this.rateLimiter.getLimit()}`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
@@ -141,7 +150,7 @@ export class RequestQueue {
       // 记录请求计数
       this.rateLimiter.incrementCounter();
       
-      console.log(`[队列] 执行任务: ${task.id}, 活跃请求: ${this.activeRequests}, 队列长度: ${this.queue.length}`);
+      this.logger?.debug(`执行任务: ${task.id}, 活跃请求: ${this.activeRequests}, 队列长度: ${this.queue.length}`);
       
       // 执行任务
       this.executeTask(task).finally(() => {
@@ -168,7 +177,7 @@ export class RequestQueue {
       const result = await task.execute();
       task.resolve(result);
     } catch (error) {
-      console.error(`[队列] 任务出错: ${task.id}`, error);
+      this.logger?.error(`任务出错: ${task.id}`, error);
       
       // 检查是否需要重试
       if (task.retries !== undefined && task.maxRetries !== undefined && task.retries < task.maxRetries) {
@@ -177,7 +186,7 @@ export class RequestQueue {
         // 计算重试延迟(指数退避)
         const retryDelay = Math.min(1000 * Math.pow(2, task.retries), 30000);
         
-        console.log(`[队列] 重试任务: ${task.id}, 尝试: ${task.retries}/${task.maxRetries}, 延迟: ${retryDelay}ms`);
+        this.logger?.info(`重试任务: ${task.id}, 尝试: ${task.retries}/${task.maxRetries}, 延迟: ${retryDelay}ms`);
         
         // 重新添加到队列
         setTimeout(() => {
@@ -199,7 +208,7 @@ export class RequestQueue {
    */
   pause(): void {
     if (!this.isPaused) {
-      console.log('[队列] 暂停处理');
+      this.logger?.info('暂停处理');
       this.isPaused = true;
     }
   }
@@ -209,7 +218,7 @@ export class RequestQueue {
    */
   resume(): void {
     if (this.isPaused) {
-      console.log('[队列] 恢复处理');
+      this.logger?.info('恢复处理');
       this.isPaused = false;
       
       if (!this.isProcessing && this.queue.length > 0) {
@@ -225,7 +234,7 @@ export class RequestQueue {
     const queueLength = this.queue.length;
     
     if (queueLength > 0) {
-      console.log(`[队列] 清空队列, 丢弃 ${queueLength} 个任务`);
+      this.logger?.info(`清空队列, 丢弃 ${queueLength} 个任务`);
       
       // 拒绝所有排队的任务
       for (const task of this.queue) {

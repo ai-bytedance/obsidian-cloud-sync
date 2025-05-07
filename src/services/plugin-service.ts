@@ -5,12 +5,16 @@ import { CacheManager } from '@src/core/cache-manager';
 import { ProviderManager } from '@src/core/provider-manager';
 import { SyncManager } from '@src/core/sync-manager';
 import { SettingsManager } from '@src/core/settings-manager';
+import { ModuleLogger } from '@services/log/log-service';
+import CloudSyncPlugin from '@main';
 
 /**
  * 插件服务类
  * 负责处理具体的业务逻辑，保持main.ts文件的简洁
  */
 export class PluginService {
+  private logger: ModuleLogger;
+  
   /**
    * 构造函数
    * @param app Obsidian应用实例
@@ -25,7 +29,13 @@ export class PluginService {
     private syncManager: SyncManager,
     private settingsManager: SettingsManager,
     private cacheManager: CacheManager
-  ) {}
+  ) {
+    // 尝试从插件实例获取日志服务
+    const plugin = (app as any).plugins?.plugins?.['obsidian-cloud-sync'] as CloudSyncPlugin;
+    if (plugin && plugin.logService) {
+      this.logger = plugin.logService.getModuleLogger('PluginService');
+    }
+  }
 
   /**
    * 保存插件设置
@@ -69,7 +79,9 @@ export class PluginService {
       // 动态导入WebDAV提供商类
       return require('@providers/webdav/webdav-provider').WebDAVProvider;
     } catch (error) {
-      console.error('获取WebDAV提供商类失败:', error);
+      if (this.logger) {
+        this.logger.error('获取WebDAV提供商类失败', error);
+      }
       return null;
     }
   }

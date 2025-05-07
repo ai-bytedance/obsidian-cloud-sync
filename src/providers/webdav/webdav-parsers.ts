@@ -1,4 +1,16 @@
 import { FileInfo, QuotaInfo } from '@providers/common/storage-provider';
+import { ModuleLogger } from '@services/log/log-service';
+
+// 全局日志记录器，用于静态函数
+let globalLogger: ModuleLogger | null = null;
+
+/**
+ * 配置解析器的日志记录器
+ * @param logger 日志记录器
+ */
+export function configureParser(logger: ModuleLogger): void {
+  globalLogger = logger;
+}
 
 /**
  * 解析WebDAV文件列表XML
@@ -18,7 +30,7 @@ export function parseFileInfoFromResponse(xmlText: string, baseUrl: string, base
     const responses = xmlDoc.getElementsByTagNameNS('DAV:', 'response');
     
     if (!responses || responses.length === 0) {
-      console.warn('WebDAV响应中未找到response元素');
+      globalLogger?.warning('WebDAV响应中未找到response元素');
       return [];
     }
     
@@ -31,7 +43,7 @@ export function parseFileInfoFromResponse(xmlText: string, baseUrl: string, base
       // 获取href元素
       const hrefElement = response.getElementsByTagNameNS('DAV:', 'href')[0];
       if (!hrefElement) {
-        console.warn('响应中缺少href元素');
+        globalLogger?.warning('响应中缺少href元素');
         continue;
       }
       
@@ -85,7 +97,7 @@ export function parseFileInfoFromResponse(xmlText: string, baseUrl: string, base
                           getElementsByTagNameNS('DAV:', 'prop')[0];
       
       if (!propElement) {
-        console.warn(`响应中缺少prop元素: ${href}`);
+        globalLogger?.warning(`响应中缺少prop元素: ${href}`);
         continue;
       }
       
@@ -126,9 +138,10 @@ export function parseFileInfoFromResponse(xmlText: string, baseUrl: string, base
       });
     }
     
+    globalLogger?.debug(`解析的文件数量: ${fileInfos.length}`);
     return fileInfos;
   } catch (error) {
-    console.error('解析WebDAV响应失败:', error);
+    globalLogger?.error('解析WebDAV响应失败:', error);
     return [];
   }
 }
@@ -168,13 +181,15 @@ export function parseQuotaFromResponse(xmlText: string): QuotaInfo {
       total = available + used;
     }
     
+    globalLogger?.debug(`解析的配额信息: 已用=${used}, 可用=${available}, 总计=${total}`);
+    
     return {
       available,
       used,
       total
     };
   } catch (error) {
-    console.error('解析WebDAV配额信息失败:', error);
+    globalLogger?.error('解析WebDAV配额信息失败:', error);
     return {
       available: -1,
       used: -1,

@@ -4,12 +4,24 @@ import { PluginSettings, WebDAVSettings, RequestDelayLevel } from '@models/plugi
 import { WebDAVProvider } from '@providers/webdav/webdav-provider';
 import { ConnectionStatus } from '@providers/common/storage-provider';
 import { ConflictPolicy, SyncDirection, SyncMode } from '@models/plugin-settings';
+import { ModuleLogger } from '@services/log/log-service';
 
 // 引入拆分后的组件
 import { createGeneralSection } from './general-settings';
 import { createCloudProvidersSection } from './provider-settings';
 import { createWebDAVSection } from './webdav-settings-ui';
 import { createAdvancedSection } from './advanced-settings';
+
+// 模块级别的日志记录器
+let logger: ModuleLogger | null = null;
+
+/**
+ * 配置模块日志记录器
+ * @param moduleLogger 日志记录器实例
+ */
+export function configureSettingsTabLogger(moduleLogger: ModuleLogger): void {
+  logger = moduleLogger;
+}
 
 // 添加CSS样式
 const JIANGUOYUN_SETTINGS_STYLES = `
@@ -109,6 +121,11 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
     
+    // 初始化日志记录器，如果尚未初始化
+    if (!logger && plugin.logService) {
+      logger = plugin.logService.getModuleLogger('SettingsTab');
+    }
+    
     // 添加CSS样式
     this.styleElement = document.head.createEl('style');
     this.styleElement.textContent = JIANGUOYUN_SETTINGS_STYLES;
@@ -130,19 +147,19 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     this.tempSettings = JSON.parse(JSON.stringify(this.plugin.settings));
     
     // 调试日志：输出初始化的tempSettings值
-    console.log('CloudSyncSettingTab - 初始化的tempSettings:', {
+    logger?.debug('初始化的tempSettings:', {
       syncMode: this.tempSettings.syncMode,
       syncDirection: this.tempSettings.syncDirection
     });
     
     // 确保同步模式和同步方向有有效值
     if (!this.tempSettings.syncMode) {
-      console.log('同步模式无效，设置为默认值: incremental');
+      logger?.info('同步模式无效，设置为默认值: incremental');
       this.tempSettings.syncMode = 'incremental';
     }
     
     if (!this.tempSettings.syncDirection) {
-      console.log('同步方向无效，设置为默认值: bidirectional');
+      logger?.info('同步方向无效，设置为默认值: bidirectional');
       this.tempSettings.syncDirection = 'bidirectional';
     }
     
@@ -195,14 +212,14 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     if (this.tempSettings.enabledProviders.includes('webdav')) {
       // 如果WebDAV在启用列表中，但WebDAV设置未启用
       if (this.tempSettings.providerSettings.webdav && !this.tempSettings.providerSettings.webdav.enabled) {
-        console.log('修复：WebDAV在enabledProviders列表中但设置中未启用');
+        logger?.info('修复：WebDAV在enabledProviders列表中但设置中未启用');
         this.tempSettings.providerSettings.webdav.enabled = true;
         needSave = true;
       }
     } else {
       // 如果WebDAV不在启用列表中，但WebDAV设置启用了
       if (this.tempSettings.providerSettings.webdav?.enabled) {
-        console.log('修复：WebDAV设置启用但不在enabledProviders列表中');
+        logger?.info('修复：WebDAV设置启用但不在enabledProviders列表中');
         this.tempSettings.enabledProviders.push('webdav');
         needSave = true;
       }
@@ -210,7 +227,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     
     // 处理同步间隔与自动同步关联逻辑
     if (this.tempSettings.syncInterval === 0 && this.tempSettings.enableSync) {
-      console.log('检测到同步间隔为0但同步已启用，同步间隔与状态不一致');
+      logger?.info('检测到同步间隔为0但同步已启用，同步间隔与状态不一致');
       this.tempSettings.enableSync = false;
       needSave = true;
     }
@@ -218,7 +235,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     if (needSave) {
       // 异步保存设置
       this.plugin.saveSettings(this.tempSettings).catch(error => {
-        console.error('保存修复后的设置失败:', error);
+        logger?.error('保存修复后的设置失败:', error);
       });
     }
     

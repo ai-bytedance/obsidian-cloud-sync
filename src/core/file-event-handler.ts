@@ -3,6 +3,7 @@ import CloudSyncPlugin from '@main';
 import { SyncEngine } from '@src/core/sync-engine';
 import { SyncFileFilter } from '@src/utils/sync-file-filter';
 import { AutoSyncManager } from '@src/core/auto-sync-manager';
+import { ModuleLogger } from '@services/log/log-service';
 
 /**
  * 文件事件处理器类
@@ -13,6 +14,7 @@ import { AutoSyncManager } from '@src/core/auto-sync-manager';
 export class FileEventHandler {
   // 标记事件是否已注册
   private eventsRegistered: boolean = false;
+  private logger: ModuleLogger;
   
   /**
    * 构造函数
@@ -25,7 +27,9 @@ export class FileEventHandler {
     private plugin: CloudSyncPlugin,
     private syncEngine: SyncEngine,
     private autoSyncManager: AutoSyncManager
-  ) {}
+  ) {
+    this.logger = this.plugin.logService.getModuleLogger('FileEventHandler');
+  }
   
   /**
    * 注册文件事件监听器
@@ -33,7 +37,7 @@ export class FileEventHandler {
    */
   registerFileEvents() {
     if (this.eventsRegistered) {
-      console.log('文件事件监听器已注册，跳过重复注册');
+      this.logger.info('文件事件监听器已注册，跳过重复注册');
       return;
     }
     
@@ -41,12 +45,12 @@ export class FileEventHandler {
     this.plugin.registerEvent(
       this.plugin.app.vault.on('create', (file) => {
         // 检查是否应该忽略
-        if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
-          console.log(`忽略创建事件: ${file.path}`);
+        if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
+          this.logger.info(`忽略创建事件: ${file.path}`);
           return;
         }
         
-        console.log(`文件创建: ${file.path}`);
+        this.logger.info(`文件创建: ${file.path}`);
         // 这里可以根据需要触发同步操作，例如：
         // 1. 即时同步
         // 2. 添加到待同步队列
@@ -58,12 +62,12 @@ export class FileEventHandler {
     this.plugin.registerEvent(
       this.plugin.app.vault.on('modify', (file) => {
         // 检查是否应该忽略
-        if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
-          console.log(`忽略修改事件: ${file.path}`);
+        if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
+          this.logger.info(`忽略修改事件: ${file.path}`);
           return;
         }
         
-        console.log(`文件修改: ${file.path}`);
+        this.logger.info(`文件修改: ${file.path}`);
         // 同上，根据需要触发同步操作
       })
     );
@@ -72,12 +76,12 @@ export class FileEventHandler {
     this.plugin.registerEvent(
       this.plugin.app.vault.on('delete', (file) => {
         // 检查是否应该忽略
-        if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
-          console.log(`忽略删除事件: ${file.path}`);
+        if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
+          this.logger.info(`忽略删除事件: ${file.path}`);
           return;
         }
         
-        console.log(`文件删除: ${file.path}`);
+        this.logger.info(`文件删除: ${file.path}`);
         // 同上，根据需要触发同步操作
       })
     );
@@ -86,18 +90,18 @@ export class FileEventHandler {
     this.plugin.registerEvent(
       this.plugin.app.vault.on('rename', (file, oldPath) => {
         // 检查是否应该忽略
-        if (SyncFileFilter.shouldIgnoreFile(file, this.plugin.settings)) {
-          console.log(`忽略重命名事件: ${oldPath} -> ${file.path}`);
+        if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
+          this.logger.info(`忽略重命名事件: ${oldPath} -> ${file.path}`);
           return;
         }
         
-        console.log(`文件重命名: ${oldPath} -> ${file.path}`);
+        this.logger.info(`文件重命名: ${oldPath} -> ${file.path}`);
         // 同上，根据需要触发同步操作
       })
     );
     
     this.eventsRegistered = true;
-    console.log('文件事件监听器已注册');
+    this.logger.info('文件事件监听器已注册');
   }
   
   /**
@@ -111,10 +115,7 @@ export class FileEventHandler {
     // 但我们可以标记为未注册，以便下次注册时知道状态
     if (this.eventsRegistered) {
       this.eventsRegistered = false;
-      console.log('文件事件监听器标记为已取消注册');
-      if (this.plugin.logService) {
-        this.plugin.logService.info('文件事件监听器标记为已取消注册');
-      }
+      this.logger.info('文件事件监听器标记为已取消注册');
     }
   }
   

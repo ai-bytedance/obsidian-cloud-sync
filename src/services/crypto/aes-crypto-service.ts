@@ -1,5 +1,7 @@
 import { CryptoService, CryptoError } from '@crypto/crypto-service';
 import * as CryptoJS from 'crypto-js';
+import { ModuleLogger } from '@services/log/log-service';
+import CloudSyncPlugin from '@main';
 
 /**
  * AES加密服务实现
@@ -9,6 +11,17 @@ import * as CryptoJS from 'crypto-js';
 export class AESCryptoService implements CryptoService {
   // 密钥长度(字节)
   private readonly KEY_LENGTH = 16;
+  private logger: ModuleLogger | null = null;
+
+  /**
+   * 构造函数
+   * @param plugin 可选，插件实例，用于获取日志服务
+   */
+  constructor(plugin?: CloudSyncPlugin) {
+    if (plugin && plugin.logService) {
+      this.logger = plugin.logService.getModuleLogger('AESCryptoService');
+    }
+  }
 
   /**
    * 加密文件内容
@@ -21,8 +34,12 @@ export class AESCryptoService implements CryptoService {
     try {
       // 验证密钥
       if (!this.validateKey(key)) {
-        throw new CryptoError(`无效的加密密钥，密钥长度必须为${this.KEY_LENGTH}个字符`, 'invalid-key');
+        const error = new CryptoError(`无效的加密密钥，密钥长度必须为${this.KEY_LENGTH}个字符`, 'invalid-key');
+        this.logger?.error('加密失败: 无效的密钥', error);
+        throw error;
       }
+
+      this.logger?.info(`开始加密内容, 大小: ${content.byteLength} 字节`);
 
       // 生成随机初始化向量(IV)
       const iv = CryptoJS.lib.WordArray.random(16);
@@ -43,12 +60,16 @@ export class AESCryptoService implements CryptoService {
         .concat(encrypted.ciphertext);
       
       // 返回加密后的ArrayBuffer
-      return this.wordArrayToArrayBuffer(result);
+      const resultBuffer = this.wordArrayToArrayBuffer(result);
+      this.logger?.info(`加密完成, 加密后大小: ${resultBuffer.byteLength} 字节`);
+      return resultBuffer;
     } catch (error) {
       if (error instanceof CryptoError) {
         throw error;
       }
-      throw new CryptoError('加密失败', 'encryption-failed', error as Error);
+      const cryptoError = new CryptoError('加密失败', 'encryption-failed', error as Error);
+      this.logger?.error('加密过程中发生错误', cryptoError);
+      throw cryptoError;
     }
   }
 
@@ -63,8 +84,12 @@ export class AESCryptoService implements CryptoService {
     try {
       // 验证密钥
       if (!this.validateKey(key)) {
-        throw new CryptoError(`无效的解密密钥，密钥长度必须为${this.KEY_LENGTH}个字符`, 'invalid-key');
+        const error = new CryptoError(`无效的解密密钥，密钥长度必须为${this.KEY_LENGTH}个字符`, 'invalid-key');
+        this.logger?.error('解密失败: 无效的密钥', error);
+        throw error;
       }
+
+      this.logger?.info(`开始解密内容, 大小: ${encryptedContent.byteLength} 字节`);
 
       // 将ArrayBuffer转换为WordArray
       const encryptedWordArray = this.arrayBufferToWordArray(encryptedContent);
@@ -94,12 +119,16 @@ export class AESCryptoService implements CryptoService {
       });
       
       // 返回解密后的ArrayBuffer
-      return this.wordArrayToArrayBuffer(decrypted);
+      const resultBuffer = this.wordArrayToArrayBuffer(decrypted);
+      this.logger?.info(`解密完成, 解密后大小: ${resultBuffer.byteLength} 字节`);
+      return resultBuffer;
     } catch (error) {
       if (error instanceof CryptoError) {
         throw error;
       }
-      throw new CryptoError('解密失败', 'decryption-failed', error as Error);
+      const cryptoError = new CryptoError('解密失败', 'decryption-failed', error as Error);
+      this.logger?.error('解密过程中发生错误', cryptoError);
+      throw cryptoError;
     }
   }
 
@@ -111,7 +140,9 @@ export class AESCryptoService implements CryptoService {
   generateKey(): string {
     // 生成一个16字节的随机密钥
     const wordArray = CryptoJS.lib.WordArray.random(this.KEY_LENGTH);
-    return wordArray.toString(CryptoJS.enc.Base64);
+    const key = wordArray.toString(CryptoJS.enc.Base64);
+    this.logger?.info('生成了新的加密密钥');
+    return key;
   }
 
   /**
@@ -122,7 +153,11 @@ export class AESCryptoService implements CryptoService {
    */
   validateKey(key: string): boolean {
     // 简单验证密钥长度是否符合要求
-    return Boolean(key && key.length === this.KEY_LENGTH);
+    const isValid = Boolean(key && key.length === this.KEY_LENGTH);
+    if (!isValid) {
+      this.logger?.warning(`密钥验证失败，长度不符: ${key?.length || 0} != ${this.KEY_LENGTH}`);
+    }
+    return isValid;
   }
 
   /**
