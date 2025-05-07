@@ -35,11 +35,18 @@ export function createAdvancedSection(
   
   const advancedSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
   
-  advancedSection.createEl('h3', { text: '高级设置' });
+  // 使用Setting.setHeading()创建标题
+  new Setting(advancedSection)
+    .setName('高级设置')
+    .setHeading();
   
   // 安全设置
   const securitySection = advancedSection.createEl('div', { cls: 'cloud-sync-settings cloud-sync-subsection' });
-  securitySection.createEl('h4', { text: '安全设置', cls: 'cloud-sync-subtitle' });
+  
+  // 使用Setting.setHeading()创建子标题
+  new Setting(securitySection)
+    .setName('安全设置')
+    .setHeading();
   
   // 启用加密
   const encryptionSetting = new Setting(securitySection)
@@ -207,7 +214,11 @@ export function createAdvancedSection(
   
   // 同步设置
   const syncSection = advancedSection.createEl('div', { cls: 'cloud-sync-settings cloud-sync-subsection' });
-  syncSection.createEl('h4', { text: '同步设置', cls: 'cloud-sync-subtitle' });
+  
+  // 使用Setting.setHeading()创建子标题
+  new Setting(syncSection)
+    .setName('同步设置')
+    .setHeading();
   
   // 冲突策略
   new Setting(syncSection)
@@ -342,7 +353,11 @@ export function createAdvancedSection(
   
   // 基础设置
   const baseSection = advancedSection.createEl('div', { cls: 'cloud-sync-settings cloud-sync-subsection' });
-  baseSection.createEl('h4', { text: '基础设置', cls: 'cloud-sync-subtitle' });
+  
+  // 使用Setting.setHeading()创建子标题
+  new Setting(baseSection)
+    .setName('基础设置')
+    .setHeading();
   
   // 调试模式
   new Setting(baseSection)

@@ -23,90 +23,6 @@ export function configureSettingsTabLogger(moduleLogger: ModuleLogger): void {
   logger = moduleLogger;
 }
 
-// 添加CSS样式
-const JIANGUOYUN_SETTINGS_STYLES = `
-.cloud-sync-provider-specific-settings {
-  margin: 10px 0;
-}
-
-.cloud-sync-jianguoyun-settings {
-  background-color: rgba(14, 101, 235, 0.05);
-  border: 1px solid rgba(14, 101, 235, 0.2);
-  border-radius: 8px;
-  padding: 12px 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.cloud-sync-jianguoyun-header {
-  margin-bottom: 10px;
-}
-
-.cloud-sync-subtitle {
-  margin: 0;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  color: var(--text-normal) !important;
-  line-height: 24px !important;
-  font-family: var(--font-interface) !important;
-}
-
-.cloud-sync-info-panel {
-  background-color: rgba(14, 101, 235, 0.1);
-  border-radius: 6px;
-  padding: 10px 12px;
-  margin-bottom: 15px;
-}
-
-.cloud-sync-info-text {
-  margin: 0;
-  font-size: 13px !important;
-  line-height: 1.4 !important;
-  color: var(--text-normal) !important;
-  font-family: var(--font-interface) !important;
-}
-
-.cloud-sync-jianguoyun-setting {
-  border-top: 1px solid rgba(14, 101, 235, 0.1);
-  padding-top: 10px;
-}
-
-.cloud-sync-jianguoyun-setting:last-child {
-  margin-bottom: 0;
-}
-
-.cloud-sync-other-provider {
-  display: flex;
-  align-items: center;
-  background-color: rgba(255, 204, 0, 0.05);
-  border: 1px dashed rgba(255, 204, 0, 0.3);
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin: 8px 0 15px 0;
-  font-size: 12px;
-}
-
-.cloud-sync-tip-icon {
-  margin-right: 8px;
-  font-size: 14px;
-  flex-shrink: 0;
-  color: #f5a623;
-}
-
-.cloud-sync-tip-text {
-  margin: 0;
-  font-size: 13px !important;
-  line-height: 1.4 !important;
-  color: var(--text-normal) !important;
-  font-family: var(--font-interface) !important;
-}
-
-.cloud-sync-required::after {
-  content: " *";
-  color: var(--text-error);
-}
-`;
-
 /**
  * Cloud Sync插件设置界面
  * @author Bing
@@ -115,7 +31,6 @@ export class CloudSyncSettingTab extends PluginSettingTab {
   plugin: CloudSyncPlugin;
   tempSettings: PluginSettings;
   testingConnection: boolean = false;
-  styleElement: HTMLStyleElement | null = null;
 
   constructor(app: App, plugin: CloudSyncPlugin) {
     super(app, plugin);
@@ -125,19 +40,6 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     if (!logger && plugin.logService) {
       logger = plugin.logService.getModuleLogger('SettingsTab');
     }
-    
-    // 添加CSS样式
-    this.styleElement = document.head.createEl('style');
-    this.styleElement.textContent = JIANGUOYUN_SETTINGS_STYLES;
-  }
-  
-  // 在卸载时移除样式
-  hide() {
-    if (this.styleElement && this.styleElement.parentNode) {
-      this.styleElement.parentNode.removeChild(this.styleElement);
-      this.styleElement = null;
-    }
-    super.hide();
   }
 
   async display(): Promise<void> {

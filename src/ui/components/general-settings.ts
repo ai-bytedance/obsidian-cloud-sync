@@ -43,7 +43,10 @@ export function createGeneralSection(
   
   const generalSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
   
-  generalSection.createEl('h3', { text: '通用设置' });
+  // 使用Setting.setHeading()创建标题
+  new Setting(generalSection)
+    .setName('通用设置')
+    .setHeading();
   
   // 保存自动同步开关的引用
   let enableSyncToggleRef: any;

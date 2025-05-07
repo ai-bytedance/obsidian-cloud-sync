@@ -40,7 +40,10 @@ export function createWebDAVSection(
   
   const webdavSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
   
-  webdavSection.createEl('h3', { text: 'WebDAV设置' });
+  // 使用Setting.setHeading()创建标题
+  new Setting(webdavSection)
+    .setName('WebDAV设置')
+    .setHeading();
   
   // 创建防抖函数，避免用户快速输入时多次尝试初始化
   let debounceTimer: NodeJS.Timeout | null = null;

@@ -35,7 +35,10 @@ export function createCloudProvidersSection(
   
   const providersSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
   
-  providersSection.createEl('h3', { text: '云盘同步' });
+  // 使用Setting.setHeading()创建标题
+  new Setting(providersSection)
+    .setName('云盘同步')
+    .setHeading();
   
   // WebDAV选项
   new Setting(providersSection)
