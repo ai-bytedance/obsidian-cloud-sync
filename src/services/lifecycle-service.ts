@@ -103,7 +103,7 @@ export class LifecycleService {
    */
   private initializeServices(): void {
     // 初始化日志服务（最先初始化，以便记录后续操作）
-    this.logService = new LogService(this.plugin.settings?.logLevel || 'info');
+    this.logService = new LogService(this.plugin.settings?.logLevel || 'info', this.plugin.app);
     this.plugin.logService = this.logService;
     this.logService.info('日志服务已初始化');
     

@@ -86,7 +86,7 @@ export class LogService {
   // Obsidian应用实例
   private app?: App;
   // 日志文件路径
-  private readonly LOG_FILE_PATH = '.obsidian/plugins/obsidian-cloud-sync/logs/cloud-sync.log';
+  private readonly LOG_FILE_PATH = '.obsidian/plugins/cloud-sync/logs/cloud-sync.log';
   // 最大日志文件大小（5MB）
   private readonly MAX_LOG_FILE_SIZE = 5 * 1024 * 1024;
   // 保留的历史日志文件数量
@@ -302,6 +302,20 @@ export class LogService {
    * @param data 附加数据（可选）
    */
   private log(level: LogLevel, message: string, data?: any): void {
+    // 非调试模式下，只记录错误级别的日志
+    // 使用更安全的方式检查 debugMode 设置
+    let debugMode = false;
+    try {
+      // @ts-ignore - 忽略类型检查，因为我们需要访问插件实例
+      debugMode = this.app?.plugins?.plugins['cloud-sync']?.settings?.debugMode || false;
+    } catch (e) {
+      // 如果出现错误，默认为非调试模式
+    }
+    
+    if (!debugMode && level !== 'error') {
+      return;
+    }
+    
     // 根据当前设置的日志级别过滤
     if (!this.shouldLog(level)) {
       return;
@@ -478,6 +492,27 @@ export class LogService {
     }
 
     try {
+      // 检查是否处于调试模式
+      let debugMode = false;
+      try {
+        // @ts-ignore - 忽略类型检查，因为我们需要访问插件实例
+        debugMode = this.app?.plugins?.plugins['cloud-sync']?.settings?.debugMode || false;
+      } catch (e) {
+        // 如果出现错误，默认为非调试模式
+      }
+      
+      // 获取最新日志条目
+      if (this.logs.length === 0) {
+        return;
+      }
+      
+      const latestLog = this.logs[this.logs.length - 1];
+      
+      // 非调试模式下，只持久化错误日志
+      if (!debugMode && latestLog.level !== 'error') {
+        return;
+      }
+
       // 确保日志目录存在
       const logDirPath = normalizePath(this.LOG_FILE_PATH.substring(0, this.LOG_FILE_PATH.lastIndexOf('/')));
       const adapter = this.app.vault.adapter;
@@ -486,12 +521,7 @@ export class LogService {
         await adapter.mkdir(logDirPath);
       }
       
-      // 格式化最新的日志条目
-      if (this.logs.length === 0) {
-        return;
-      }
-      
-      const latestLog = this.logs[this.logs.length - 1];
+      // 格式化日志条目
       const timeStr = latestLog.timestamp.toISOString();
       const levelStr = this.formatLogLevel(latestLog.level);
       
