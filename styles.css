@@ -99,10 +99,36 @@
   background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>');
   background-repeat: no-repeat;
   background-position: center;
+  z-index: 1;
+  font-size: 16px;
+  color: var(--text-normal);
+  pointer-events: auto;
 }
 
 .eye-icon-container:hover {
   opacity: 1;
+}
+
+/* 按钮样式 */
+.cloud-sync-button {
+  border-radius: 4px;
+  padding: 2px 6px;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-size: 11px;
+  min-width: auto;
+  height: 24px;
+  line-height: 1;
+}
+
+/* 输入框容器相对定位 */
+.cloud-sync-input-container {
+  position: relative;
+}
+
+/* 输入框右侧留空间 */
+.cloud-sync-password-input {
+  padding-right: 30px;
 }
 
 /* 标签样式 */

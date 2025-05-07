@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-cloud-sync",
+  "name": "cloud-sync",
   "version": "1.0.0",
   "description": "一个支持多种云存储服务的Obsidian同步插件",
   "main": "main.js",

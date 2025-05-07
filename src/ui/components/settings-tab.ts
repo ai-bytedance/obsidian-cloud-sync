@@ -148,7 +148,10 @@ export class CloudSyncSettingTab extends PluginSettingTab {
   createICloudSection(containerEl: HTMLElement): void {
     const icloudSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
     
-    icloudSection.createEl('h3', { text: 'iCloud设置' });
+    // 使用Setting.setHeading()创建标题
+    new Setting(icloudSection)
+      .setName('iCloud设置')
+      .setHeading();
     
     // App ID设置
     new Setting(icloudSection)
@@ -204,27 +207,17 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         // 获取输入框元素
         const inputEl = text.inputEl;
         
-        // 调整输入框样式，为图标留出空间
-        inputEl.style.paddingRight = '30px';
+        // 添加密码输入框样式类
+        inputEl.addClass('cloud-sync-password-input');
         
         // 创建一个容器来包含输入框和图标
         const containerEl = inputEl.parentElement;
         if (containerEl) {
-          containerEl.style.position = 'relative';
+          // 添加容器样式类
+          containerEl.addClass('cloud-sync-input-container');
           
           // 添加显示/隐藏按钮到输入框容器中
           const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
-          eyeIconContainer.style.position = 'absolute';
-          eyeIconContainer.style.right = '8px';
-          eyeIconContainer.style.top = '50%';
-          eyeIconContainer.style.transform = 'translateY(-50%)';
-          eyeIconContainer.style.cursor = 'pointer';
-          eyeIconContainer.style.zIndex = '1';
-          eyeIconContainer.style.fontSize = '16px';
-          eyeIconContainer.style.opacity = '0.7';
-          eyeIconContainer.style.color = 'var(--text-normal)';
-          eyeIconContainer.style.pointerEvents = 'auto';
-          eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
           
           eyeIconContainer.addEventListener('click', () => {
             togglePasswordVisibility(!isPasswordVisible);
@@ -273,7 +266,10 @@ export class CloudSyncSettingTab extends PluginSettingTab {
   createGitHubSection(containerEl: HTMLElement): void {
     const githubSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
     
-    githubSection.createEl('h3', { text: 'GitHub设置' });
+    // 使用Setting.setHeading()创建标题
+    new Setting(githubSection)
+      .setName('GitHub设置')
+      .setHeading();
     
     // 用户名设置
     new Setting(githubSection)
@@ -333,26 +329,17 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         // 获取输入框元素
         const inputEl = text.inputEl;
         
-        // 调整输入框样式，为图标留出空间
-        inputEl.style.paddingRight = '30px';
+        // 添加密码输入框样式类
+        inputEl.addClass('cloud-sync-password-input');
         
         // 创建一个容器来包含输入框和图标
         const containerEl = inputEl.parentElement;
         if (containerEl) {
-          containerEl.style.position = 'relative';
+          // 添加容器样式类
+          containerEl.addClass('cloud-sync-input-container');
           
           // 添加显示/隐藏按钮到输入框容器中
           const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
-          eyeIconContainer.style.position = 'absolute';
-          eyeIconContainer.style.right = '8px';
-          eyeIconContainer.style.top = '50%';
-          eyeIconContainer.style.transform = 'translateY(-50%)';
-          eyeIconContainer.style.cursor = 'pointer';
-          eyeIconContainer.style.zIndex = '1';
-          eyeIconContainer.style.fontSize = '16px';
-          eyeIconContainer.style.opacity = '0.7';
-          eyeIconContainer.style.color = 'var(--text-normal)';
-          eyeIconContainer.style.pointerEvents = 'auto';
           eyeIconContainer.innerHTML = isTokenVisible ? '👁️' : '👁️‍🗨️';
           
           eyeIconContainer.addEventListener('click', () => {
