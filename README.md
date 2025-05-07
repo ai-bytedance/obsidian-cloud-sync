@@ -5,8 +5,11 @@
 > **注意**：此插件目前处于 Alpha 开发阶段。WebDAV 同步功能已基本实现，GitHub 和 iCloud 等其他云盘服务仍在开发中。欢迎测试使用并反馈，但在同步重要数据时请务必备份。
 
 一款强大的 Obsidian 插件，支持将笔记自动同步到多种云盘服务，提供端到端加密保护，让您的笔记既安全又便捷。
+![image](https://github.com/user-attachments/assets/278e09f5-7f04-4de8-bfd1-3d3dfc3017ae)
+![image](https://github.com/user-attachments/assets/ab77642b-ed03-4493-ace8-beec5da4a284)
+![image](https://github.com/user-attachments/assets/904823cb-e977-4169-a216-7256f9b5d353)
+![image](https://github.com/user-attachments/assets/b3c55798-68a5-47a9-b624-b2c29d2a1c68)
 
-![webdav](https://github.com/user-attachments/assets/e465e1d5-e0a6-4da5-928c-eb9ac5e33668)
 
 ## 核心功能
 
