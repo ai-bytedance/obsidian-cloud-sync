@@ -1,7 +1,7 @@
 /**
  * 日志服务类
  * 负责收集、存储和导出日志信息
- * @author Chatbot
+ * @author Bing
  */
 import { LogLevel } from '@models/plugin-settings';
 import { App, TFile, normalizePath } from 'obsidian';
