@@ -6,12 +6,39 @@ import { ModuleLogger } from '@services/log/log-service';
 import CloudSyncPlugin from '@main';
 
 /**
+ * 扩展的存储提供商接口
+ * 包含WebDAV特定的方法
+ */
+interface ExtendedStorageProvider extends StorageProvider {
+  updateRequestDelay?: (delayLevel: RequestDelayLevel) => Promise<void>;
+  updateAccountType?: (isPaidUser: boolean) => Promise<void>;
+}
+
+/**
+ * 类型守卫：检查提供商是否支持更新请求延迟
+ * @param provider 存储提供商
+ * @returns 提供商是否支持更新请求延迟
+ */
+function supportsRequestDelay(provider: StorageProvider): provider is ExtendedStorageProvider & { updateRequestDelay: Function } {
+  return 'updateRequestDelay' in provider && typeof (provider as ExtendedStorageProvider).updateRequestDelay === 'function';
+}
+
+/**
+ * 类型守卫：检查提供商是否支持更新账户类型
+ * @param provider 存储提供商
+ * @returns 提供商是否支持更新账户类型
+ */
+function supportsAccountType(provider: StorageProvider): provider is ExtendedStorageProvider & { updateAccountType: Function } {
+  return 'updateAccountType' in provider && typeof (provider as ExtendedStorageProvider).updateAccountType === 'function';
+}
+
+/**
  * WebDAV提供商类
  * 向下兼容的包装器，保持与原WebDAVProvider接口兼容
  * @author Bing
  */
 export class WebDAVProvider implements StorageProvider {
-  private provider: StorageProvider;
+  private provider: ExtendedStorageProvider;
   private logger: ModuleLogger | null = null;
   
   /**
@@ -28,7 +55,7 @@ export class WebDAVProvider implements StorageProvider {
     }
 
     // 创建底层提供商实例
-    this.provider = WebDAVFactory.createProvider(config, app, plugin);
+    this.provider = WebDAVFactory.createProvider(config, app, plugin) as ExtendedStorageProvider;
     this.logger?.info('WebDAV提供商创建完成');
   }
   
@@ -319,10 +346,9 @@ export class WebDAVProvider implements StorageProvider {
   async updateRequestDelay(delayLevel: RequestDelayLevel): Promise<void> {
     this.logger?.info(`更新WebDAV请求延迟设置: ${delayLevel}`);
     try {
-      // 检查底层提供商是否支持此方法
-      if (this.provider && 
-          typeof (this.provider as any).updateRequestDelay === 'function') {
-        await (this.provider as any).updateRequestDelay(delayLevel);
+      // 使用类型守卫检查底层提供商是否支持此方法
+      if (this.provider && supportsRequestDelay(this.provider)) {
+        await this.provider.updateRequestDelay(delayLevel);
         this.logger?.info(`请求延迟设置已更新: ${delayLevel}`);
         return;
       }
@@ -343,10 +369,9 @@ export class WebDAVProvider implements StorageProvider {
   async updateAccountType(isPaidUser: boolean): Promise<void> {
     this.logger?.info(`更新WebDAV账户类型: ${isPaidUser ? '付费用户' : '免费用户'}`);
     try {
-      // 检查底层提供商是否支持此方法
-      if (this.provider && 
-          typeof (this.provider as any).updateAccountType === 'function') {
-        await (this.provider as any).updateAccountType(isPaidUser);
+      // 使用类型守卫检查底层提供商是否支持此方法
+      if (this.provider && supportsAccountType(this.provider)) {
+        await this.provider.updateAccountType(isPaidUser);
         this.logger?.info(`账户类型已更新: ${isPaidUser ? '付费用户' : '免费用户'}`);
         return;
       }

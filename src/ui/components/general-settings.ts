@@ -101,10 +101,9 @@ export function createGeneralSection(
   
   // 添加数值显示元素
   const valueDisplayEl = syncIntervalSetting.controlEl.createEl("span", {
-    cls: "sync-interval-display",
+    cls: "sync-interval-display cs-value-display",
     text: `${tempSettings.syncInterval}`
   });
-  valueDisplayEl.style.marginRight = "10px";
   
   // 添加滑动条和文本输入框
   // 保存文本组件引用
@@ -339,7 +338,7 @@ export function createGeneralSection(
   // 添加文本区域
   ignoreFolderSection.addTextArea(text => {
     const textArea = text.setValue(tempSettings.ignoreFolders.join(', '))
-      .setPlaceholder('例如: .git, .obsidian, node_*, \\.obsidian/.*')
+      .setPlaceholder('例如: .git, 配置目录, node_*, 系统文件夹/.*')
       .onChange(async (value) => {
         tempSettings.ignoreFolders = value.split(',').map(item => item.trim()).filter(item => !!item);
         await plugin.saveSettings(tempSettings);

@@ -137,7 +137,9 @@ export class VaultFileManager {
   public async deleteFile(path: string): Promise<void> {
     const file = this.vault.getAbstractFileByPath(path);
     if (file) {
-      await this.vault.delete(file);
+      // 使用app.fileManager.trashFile替代直接删除
+      // 这会根据用户偏好处理文件（例如移动到回收站）
+      await this.plugin.app.fileManager.trashFile(file);
     }
   }
 

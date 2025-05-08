@@ -207,7 +207,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   deleteLocalExtraFiles: false,  // 默认不删除本地端多余文件
   
   // 过滤设置
-  ignoreFolders: ['.git', '.obsidian', 'node_modules'],
+  ignoreFolders: ['.git', 'node_modules'],  // 配置目录会在运行时添加
   ignoreFiles: ['.DS_Store', 'desktop.ini', 'thumbs.db'],
   ignoreExtensions: ['tmp', 'bak', 'swp'],
   

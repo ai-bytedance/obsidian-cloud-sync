@@ -55,6 +55,20 @@ export class SyncManager {
         return false;
       }
       
+      // 确保configDir被添加到ignoreFolders中
+      const configDir = this.plugin.app.vault.configDir;
+      if (configDir && this.plugin.settings.ignoreFolders) {
+        // 检查configDir是否已经存在于ignoreFolders中
+        const configDirInList = this.plugin.settings.ignoreFolders.some(
+          folder => folder === configDir || folder === `${configDir}/`
+        );
+        
+        if (!configDirInList) {
+          this.logger.info(`将配置目录 ${configDir} 添加到忽略文件夹列表`);
+          this.plugin.settings.ignoreFolders.push(configDir);
+        }
+      }
+      
       // 检查网络状态（如果启用了网络检测）
       if (this.plugin.settings.networkDetection) {
         // 记录当前网络类型，用于调试

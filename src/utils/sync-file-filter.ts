@@ -1,6 +1,7 @@
 import { PluginSettings, FilterMode } from '@models/plugin-settings';
 import { TAbstractFile, TFile } from 'obsidian';
 import { ModuleLogger } from '@services/log/log-service';
+import CloudSyncPlugin from '@main';
 
 /**
  * 同步文件过滤工具类
@@ -12,6 +13,8 @@ import { ModuleLogger } from '@services/log/log-service';
 export class SyncFileFilter {
   // 静态日志记录器
   private static logger: ModuleLogger | null = null;
+  // 存储configDir的静态引用
+  private static configDir: string | null = null;
   
   /**
    * 配置工具类的日志记录器
@@ -19,6 +22,15 @@ export class SyncFileFilter {
    */
   static configureLogger(logger: ModuleLogger): void {
     SyncFileFilter.logger = logger;
+  }
+  
+  /**
+   * 配置配置目录路径
+   * @param plugin 插件实例，用于获取configDir
+   */
+  static configureConfigDir(plugin: CloudSyncPlugin): void {
+    SyncFileFilter.configDir = plugin.app.vault.configDir;
+    this.logger?.debug(`配置目录设置为: ${SyncFileFilter.configDir}`);
   }
   
   /**
@@ -148,7 +160,9 @@ export class SyncFileFilter {
     }
     
     // 检查是否是Obsidian配置文件
-    const configDirs = ['.obsidian/', '.trash/'];
+    // 使用configDir而不是硬编码的.obsidian
+    const configFolderName = this.configDir ? `${this.configDir}/` : '.obsidian/';
+    const configDirs = [configFolderName, '.trash/'];
     if (configDirs.some(dir => filePath.includes('/' + dir))) {
       this.logger?.debug(`排除Obsidian配置文件: ${filePath}`);
       return true;
@@ -206,7 +220,9 @@ export class SyncFileFilter {
     }
     
     // 检查是否是Obsidian配置目录
-    const configDirs = ['.obsidian/', '.trash/'];
+    // 使用configDir而不是硬编码的.obsidian
+    const configFolderName = this.configDir ? `${this.configDir}/` : '.obsidian/';
+    const configDirs = [configFolderName, '.trash/'];
     if (configDirs.some(dir => standardDirPath.includes('/' + dir))) {
       this.logger?.debug(`排除Obsidian配置目录: ${standardDirPath}`);
       return true;

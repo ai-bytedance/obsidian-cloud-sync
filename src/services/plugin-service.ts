@@ -9,6 +9,16 @@ import { ModuleLogger } from '@services/log/log-service';
 import CloudSyncPlugin from '@main';
 
 /**
+ * Obsidian插件管理器接口
+ * 定义了Obsidian插件API的结构，避免使用any
+ */
+interface ObsidianPlugins {
+  plugins: {
+    [pluginId: string]: CloudSyncPlugin | any;
+  };
+}
+
+/**
  * 插件服务类
  * 负责处理具体的业务逻辑，保持main.ts文件的简洁
  */
@@ -31,7 +41,8 @@ export class PluginService {
     private cacheManager: CacheManager
   ) {
     // 尝试从插件实例获取日志服务
-    const plugin = (app as any).plugins?.plugins?.['obsidian-cloud-sync'] as CloudSyncPlugin;
+    const appWithPlugins = this.app as App & { plugins: ObsidianPlugins };
+    const plugin = appWithPlugins?.plugins?.plugins?.['obsidian-cloud-sync'] as CloudSyncPlugin | undefined;
     if (plugin && plugin.logService) {
       this.logger = plugin.logService.getModuleLogger('PluginService');
     }

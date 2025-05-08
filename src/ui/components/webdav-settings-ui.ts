@@ -179,7 +179,7 @@ export function createWebDAVSection(
       const inputEl = text.inputEl;
       
       // 调整输入框样式，为图标留出空间
-      inputEl.style.paddingRight = '30px';
+      inputEl.addClass('cs-input-with-icon');
       
       // 创建一个容器来包含输入框和图标
       const containerEl = inputEl.parentElement;
@@ -187,22 +187,14 @@ export function createWebDAVSection(
         containerEl.style.position = 'relative';
         
         // 添加显示/隐藏按钮到输入框容器中
-        const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
-        eyeIconContainer.style.position = 'absolute';
-        eyeIconContainer.style.right = '8px';
-        eyeIconContainer.style.top = '50%';
-        eyeIconContainer.style.transform = 'translateY(-50%)';
-        eyeIconContainer.style.cursor = 'pointer';
-        eyeIconContainer.style.zIndex = '1';
-        eyeIconContainer.style.fontSize = '16px';
-        eyeIconContainer.style.opacity = '0.7';
-        eyeIconContainer.style.color = 'var(--text-normal)';
-        eyeIconContainer.style.pointerEvents = 'auto';
-        eyeIconContainer.innerHTML = isTextVisible ? '👁️' : '👁️‍🗨️';
+        const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
+        
+        // 使用createDiv和setText替代innerHTML
+        eyeIconContainer.setText(isTextVisible ? '👁️' : '👁️‍🗨️');
         
         eyeIconContainer.addEventListener('click', () => {
           toggleTextVisibility(!isTextVisible);
-          eyeIconContainer.innerHTML = isTextVisible ? '👁️' : '👁️‍🗨️';
+          eyeIconContainer.setText(isTextVisible ? '👁️' : '👁️‍🗨️');
         });
       }
       
@@ -251,7 +243,7 @@ export function createWebDAVSection(
       const inputEl = text.inputEl;
       
       // 调整输入框样式，为图标留出空间
-      inputEl.style.paddingRight = '30px';
+      inputEl.addClass('cs-input-with-icon');
       
       // 创建一个容器来包含输入框和图标
       const containerEl = inputEl.parentElement;
@@ -259,22 +251,14 @@ export function createWebDAVSection(
         containerEl.style.position = 'relative';
         
         // 添加显示/隐藏按钮到输入框容器中
-        const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
-        eyeIconContainer.style.position = 'absolute';
-        eyeIconContainer.style.right = '8px';
-        eyeIconContainer.style.top = '50%';
-        eyeIconContainer.style.transform = 'translateY(-50%)';
-        eyeIconContainer.style.cursor = 'pointer';
-        eyeIconContainer.style.zIndex = '1';
-        eyeIconContainer.style.fontSize = '16px';
-        eyeIconContainer.style.opacity = '0.7';
-        eyeIconContainer.style.color = 'var(--text-normal)';
-        eyeIconContainer.style.pointerEvents = 'auto';
-        eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
+        const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
+        
+        // 使用createDiv和setText替代innerHTML
+        eyeIconContainer.setText(isPasswordVisible ? '👁️' : '👁️‍🗨️');
         
         eyeIconContainer.addEventListener('click', () => {
           togglePasswordVisibility(!isPasswordVisible);
-          eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
+          eyeIconContainer.setText(isPasswordVisible ? '👁️' : '👁️‍🗨️');
         });
       }
       
@@ -293,7 +277,7 @@ export function createWebDAVSection(
       
       const inputEl = text.inputEl;
       // 设置输入框宽度为更宽
-      inputEl.style.width = '300px';
+      inputEl.addClass('cs-input-wide');
       
       return text
         .setValue(tempSettings.providerSettings.webdav?.serverUrl || '')
@@ -400,9 +384,14 @@ export function createWebDAVSection(
               });
               
               // 添加提示信息
-              otherProviderSection.createEl('p', { 
+              const tipText = otherProviderSection.createEl('p', { 
                 cls: 'cloud-sync-tip-text'
-              }).innerHTML = '提示：若使用坚果云，输入包含<span class="highlight">jianguoyun.com</span>的URL可启用优化选项';
+              });
+              
+              // 使用DOM API替代innerHTML
+              tipText.createSpan({ text: '提示：若使用坚果云，输入包含' });
+              tipText.createSpan({ text: 'jianguoyun.com', cls: 'highlight' });
+              tipText.createSpan({ text: '的URL可启用优化选项' });
             }
           } else if (!value && providerSpecificSection) {
             logger?.info('URL为空，清除提示');
@@ -450,9 +439,17 @@ export function createWebDAVSection(
     });
 
     // 添加说明文本
-    infoPanel.createEl('p', { 
+    const infoText = infoPanel.createEl('p', { 
       cls: 'cloud-sync-info-text'
-    }).innerHTML = '坚果云<span class="highlight">免费用户每30分钟最多600次请求，付费用户最多1500次请求</span>。适当调整延迟可以避免同步问题。';
+    });
+    
+    // 使用DOM API替代innerHTML
+    infoText.createSpan({ text: '坚果云' });
+    infoText.createSpan({ 
+      text: '免费用户每30分钟最多600次请求，付费用户最多1500次请求', 
+      cls: 'highlight' 
+    });
+    infoText.createSpan({ text: '。适当调整延迟可以避免同步问题。' });
     
     // 用户类型设置
     const accountTypeSetting = new Setting(jianguoyunSettingsContainer)
@@ -563,9 +560,14 @@ export function createWebDAVSection(
     });
     
     // 添加提示信息(更简洁的版本)
-    otherProviderSection.createEl('p', { 
+    const tipText = otherProviderSection.createEl('p', { 
       cls: 'cloud-sync-tip-text'
-    }).innerHTML = '提示：若使用坚果云，输入包含<span class="highlight">jianguoyun.com</span>的URL可启用优化选项';
+    });
+    
+    // 使用DOM API替代innerHTML
+    tipText.createSpan({ text: '提示：若使用坚果云，输入包含' });
+    tipText.createSpan({ text: 'jianguoyun.com', cls: 'highlight' });
+    tipText.createSpan({ text: '的URL可启用优化选项' });
   }
   
   // 同步路径设置

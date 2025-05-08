@@ -1,4 +1,73 @@
 /* 通用样式 */
+
+/* 组件样式 - 从JavaScript中迁移的样式 */
+
+/* 通用输入框样式 */
+.cs-input-with-icon {
+  padding-right: 30px !important;
+}
+
+.cs-input-wide {
+  width: 300px !important;
+}
+
+.cs-input-multiline {
+  width: 300px !important;
+  height: 60px !important;
+}
+
+/* 图标样式 */
+.cs-eye-icon {
+  font-size: 16px;
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+/* 按钮容器样式 */
+.cs-button-container {
+  display: flex;
+  margin-left: 8px;
+}
+
+/* 按钮样式 */
+.cs-button {
+  padding: 2px 6px;
+  font-size: 11px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.cs-primary-button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.cs-secondary-button {
+  background-color: var(--interactive-accent-hover);
+  color: var(--text-on-accent);
+}
+
+/* 警告文本样式 */
+.cs-warning-text {
+  color: var(--text-error);
+}
+
+.cs-small-warning-text {
+  color: var(--text-error);
+  font-size: 0.7em;
+}
+
+/* 值显示样式 */
+.cs-value-display {
+  margin-right: 10px;
+}
+
+/* 高亮文本 */
+.cs-highlight {
+  font-weight: bold;
+  color: var(--text-accent);
+}
+
 .cloud-sync-settings {
   margin-top: 1em;
   margin-bottom: 1em;

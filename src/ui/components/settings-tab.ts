@@ -208,7 +208,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         const inputEl = text.inputEl;
         
         // 添加密码输入框样式类
-        inputEl.addClass('cloud-sync-password-input');
+        inputEl.addClass('cloud-sync-password-input cs-input-with-icon');
         
         // 创建一个容器来包含输入框和图标
         const containerEl = inputEl.parentElement;
@@ -217,12 +217,15 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           containerEl.addClass('cloud-sync-input-container');
           
           // 添加显示/隐藏按钮到输入框容器中
-          const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
+          const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
           
           eyeIconContainer.addEventListener('click', () => {
             togglePasswordVisibility(!isPasswordVisible);
-            eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
+            eyeIconContainer.setText(isPasswordVisible ? '👁️' : '👁️‍🗨️');
           });
+          
+          // 初始设置图标文本
+          eyeIconContainer.setText(isPasswordVisible ? '👁️' : '👁️‍🗨️');
         }
         
         return text;
@@ -330,7 +333,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         const inputEl = text.inputEl;
         
         // 添加密码输入框样式类
-        inputEl.addClass('cloud-sync-password-input');
+        inputEl.addClass('cloud-sync-password-input cs-input-with-icon');
         
         // 创建一个容器来包含输入框和图标
         const containerEl = inputEl.parentElement;
@@ -339,13 +342,15 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           containerEl.addClass('cloud-sync-input-container');
           
           // 添加显示/隐藏按钮到输入框容器中
-          const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
-          eyeIconContainer.innerHTML = isTokenVisible ? '👁️' : '👁️‍🗨️';
+          const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
           
           eyeIconContainer.addEventListener('click', () => {
             toggleTokenVisibility(!isTokenVisible);
-            eyeIconContainer.innerHTML = isTokenVisible ? '👁️' : '👁️‍🗨️';
+            eyeIconContainer.setText(isTokenVisible ? '👁️' : '👁️‍🗨️');
           });
+          
+          // 初始设置图标文本
+          eyeIconContainer.setText(isTokenVisible ? '👁️' : '👁️‍🗨️');
         }
         
         return text;

@@ -85,8 +85,15 @@ export class LogService {
   private originalConsole: OriginalConsoleMethods;
   // Obsidian应用实例
   private app?: App;
-  // 日志文件路径
-  private readonly LOG_FILE_PATH = '.obsidian/plugins/cloud-sync/logs/cloud-sync.log';
+  // 日志文件路径 - 使用getter而不是硬编码路径
+  private get logFilePath(): string {
+    // 如果app可用并且已初始化，使用configDir
+    if (this.app?.vault?.configDir) {
+      return `${this.app.vault.configDir}/plugins/cloud-sync/logs/cloud-sync.log`;
+    }
+    // 否则回退到默认值
+    return 'plugins/cloud-sync/logs/cloud-sync.log';
+  }
   // 最大日志文件大小（5MB）
   private readonly MAX_LOG_FILE_SIZE = 5 * 1024 * 1024;
   // 保留的历史日志文件数量
@@ -514,7 +521,7 @@ export class LogService {
       }
 
       // 确保日志目录存在
-      const logDirPath = normalizePath(this.LOG_FILE_PATH.substring(0, this.LOG_FILE_PATH.lastIndexOf('/')));
+      const logDirPath = normalizePath(this.logFilePath.substring(0, this.logFilePath.lastIndexOf('/')));
       const adapter = this.app.vault.adapter;
       
       if (!await adapter.exists(logDirPath)) {
@@ -534,8 +541,8 @@ export class LogService {
       // 检查日志文件大小并可能进行轮转
       let needRotation = false;
       
-      if (await adapter.exists(this.LOG_FILE_PATH)) {
-        const stat = await adapter.stat(this.LOG_FILE_PATH);
+      if (await adapter.exists(this.logFilePath)) {
+        const stat = await adapter.stat(this.logFilePath);
         if (stat && stat.size > this.MAX_LOG_FILE_SIZE) {
           needRotation = true;
         }
@@ -547,12 +554,12 @@ export class LogService {
       }
       
       // 追加到日志文件
-      if (await adapter.exists(this.LOG_FILE_PATH)) {
-        const existingContent = await adapter.read(this.LOG_FILE_PATH);
-        await adapter.write(this.LOG_FILE_PATH, existingContent + logLine);
+      if (await adapter.exists(this.logFilePath)) {
+        const existingContent = await adapter.read(this.logFilePath);
+        await adapter.write(this.logFilePath, existingContent + logLine);
       } else {
         const header = `=== Cloud Sync 日志 ===\n创建于: ${new Date().toISOString()}\n\n`;
-        await adapter.write(this.LOG_FILE_PATH, header + logLine);
+        await adapter.write(this.logFilePath, header + logLine);
       }
     } catch (error) {
       // 不使用this.error避免递归
@@ -572,7 +579,7 @@ export class LogService {
     }
     
     const adapter = this.app.vault.adapter;
-    const basePath = this.LOG_FILE_PATH;
+    const basePath = this.logFilePath;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const rotatedPath = basePath.replace('.log', `-${timestamp}.log`);
     
@@ -602,8 +609,8 @@ export class LogService {
     }
     
     const adapter = this.app.vault.adapter;
-    const logDirPath = normalizePath(this.LOG_FILE_PATH.substring(0, this.LOG_FILE_PATH.lastIndexOf('/')));
-    const logFilePrefix = this.LOG_FILE_PATH.substring(this.LOG_FILE_PATH.lastIndexOf('/') + 1).replace('.log', '');
+    const logDirPath = normalizePath(this.logFilePath.substring(0, this.logFilePath.lastIndexOf('/')));
+    const logFilePrefix = this.logFilePath.substring(this.logFilePath.lastIndexOf('/') + 1).replace('.log', '');
     
     try {
       // 列出日志目录中的所有文件
@@ -653,7 +660,7 @@ export class LogService {
     
     try {
       // 确保日志目录存在
-      const logDirPath = normalizePath(this.LOG_FILE_PATH.substring(0, this.LOG_FILE_PATH.lastIndexOf('/')));
+      const logDirPath = normalizePath(this.logFilePath.substring(0, this.logFilePath.lastIndexOf('/')));
       const adapter = this.app.vault.adapter;
       
       if (!await adapter.exists(logDirPath)) {
@@ -665,8 +672,8 @@ export class LogService {
       
       // 检查文件大小是否需要轮转
       let needRotation = false;
-      if (await adapter.exists(this.LOG_FILE_PATH)) {
-        const stat = await adapter.stat(this.LOG_FILE_PATH);
+      if (await adapter.exists(this.logFilePath)) {
+        const stat = await adapter.stat(this.logFilePath);
         if (stat && stat.size > this.MAX_LOG_FILE_SIZE) {
           needRotation = true;
         }
@@ -678,7 +685,7 @@ export class LogService {
       }
       
       // 写入文件
-      await adapter.write(this.LOG_FILE_PATH, logContent);
+      await adapter.write(this.logFilePath, logContent);
       
       return true;
     } catch (error) {

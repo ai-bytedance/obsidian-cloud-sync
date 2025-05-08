@@ -235,6 +235,8 @@ export class LifecycleService {
     // 配置各个工具类的日志记录器
     SyncPathUtils.configureLogger(syncPathLogger);
     SyncFileFilter.configureLogger(syncFileFilterLogger);
+    // 配置SyncFileFilter的configDir
+    SyncFileFilter.configureConfigDir(this.plugin);
     configureMarkdownProcessor(markdownProcessorLogger);
     
     // 配置UI组件的日志记录器

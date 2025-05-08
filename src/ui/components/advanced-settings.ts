@@ -71,9 +71,8 @@ export function createAdvancedSection(
   if (!tempSettings.encryption.enabled) {
     const warningEl = encryptionSetting.descEl.createDiv({
       text: '关闭加密后，远端加密的内容会被解密展示！',
-      cls: 'setting-item-description cloud-sync-warning'
+      cls: 'setting-item-description cloud-sync-warning cs-warning-text'
     });
-    warningEl.style.color = 'var(--text-error)';
     // 设置警告文字为粗体
     warningEl.style.fontWeight = 'bold';
   }
@@ -93,7 +92,7 @@ export function createAdvancedSection(
         const inputEl = text.inputEl;
         
         // 调整输入框样式，为图标留出空间
-        inputEl.style.paddingRight = '30px';
+        inputEl.addClass('cs-input-with-icon');
         
         text.setPlaceholder('16位加密密钥')
           .setValue(tempSettings.encryption.key)
@@ -114,24 +113,16 @@ export function createAdvancedSection(
           containerEl.style.position = 'relative';
           
           // 添加显示/隐藏按钮到输入框容器中
-          const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container' });
-          eyeIconContainer.style.position = 'absolute';
-          eyeIconContainer.style.right = '8px';
-          eyeIconContainer.style.top = '50%';
-          eyeIconContainer.style.transform = 'translateY(-50%)';
-          eyeIconContainer.style.cursor = 'pointer';
-          eyeIconContainer.style.zIndex = '10';
-          eyeIconContainer.style.fontSize = '16px';
-          eyeIconContainer.style.opacity = '0.7';
-          eyeIconContainer.style.color = 'var(--text-normal)';
-          eyeIconContainer.style.pointerEvents = 'auto';
-          eyeIconContainer.innerHTML = isPasswordVisible ? '👁️' : '👁️‍🗨️';
+          const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
+          
+          // 使用setText替代innerHTML
+          eyeIconContainer.setText(isPasswordVisible ? '👁️' : '👁️‍🗨️');
           
           // 添加密码可见性切换功能
           const togglePasswordVisibility = (show: boolean) => {
             isPasswordVisible = show;
             inputEl.type = show ? 'text' : 'password';
-            eyeIconContainer.innerHTML = show ? '👁️' : '👁️‍🗨️';
+            eyeIconContainer.setText(show ? '👁️' : '👁️‍🗨️');
           };
           
           eyeIconContainer.addEventListener('click', () => {
@@ -145,9 +136,9 @@ export function createAdvancedSection(
     // 为加密密钥单独添加按钮，而不是使用addExtraButton
     const encryptionKeyButtonContainer = encryptionKeySetting.settingEl.createDiv('setting-item-control');
     encryptionKeyButtonContainer.style.flexShrink = '0';
-    encryptionKeyButtonContainer.style.display = 'flex';
-    encryptionKeyButtonContainer.style.marginLeft = '8px';
-    encryptionKeyButtonContainer.style.gap = '6px'; // 按钮之间的间距
+    encryptionKeyButtonContainer.addClass('cs-button-container');
+    // 按钮之间的间距保留
+    encryptionKeyButtonContainer.style.gap = '6px';
     
     // 添加生成随机密钥按钮
     const genKeyButton = new ButtonComponent(encryptionKeyButtonContainer);
@@ -176,14 +167,8 @@ export function createAdvancedSection(
     
     // 美化生成按钮
     const genKeyEl = genKeyButton.buttonEl;
-    genKeyEl.style.borderRadius = '4px';
-    genKeyEl.style.padding = '2px 6px';
-    genKeyEl.style.backgroundColor = 'var(--interactive-accent)';
-    genKeyEl.style.color = 'var(--text-on-accent)';
-    genKeyEl.style.fontSize = '11px';
-    genKeyEl.style.minWidth = 'auto';
-    genKeyEl.style.height = '24px';
-    genKeyEl.style.lineHeight = '1';
+    genKeyEl.addClass('cs-button');
+    genKeyEl.addClass('cs-primary-button');
     
     // 添加复制密钥按钮
     const copyKeyButton = new ButtonComponent(encryptionKeyButtonContainer);
@@ -197,14 +182,8 @@ export function createAdvancedSection(
     
     // 美化复制按钮
     const copyKeyEl = copyKeyButton.buttonEl;
-    copyKeyEl.style.borderRadius = '4px';
-    copyKeyEl.style.padding = '2px 6px';
-    copyKeyEl.style.backgroundColor = 'var(--interactive-accent-hover)';
-    copyKeyEl.style.color = 'var(--text-on-accent)';
-    copyKeyEl.style.fontSize = '11px';
-    copyKeyEl.style.minWidth = 'auto';
-    copyKeyEl.style.height = '24px';
-    copyKeyEl.style.lineHeight = '1';
+    copyKeyEl.addClass('cs-button');
+    copyKeyEl.addClass('cs-secondary-button');
     
     encryptionKeySetting.descEl.createDiv({
       text: '必须输入16位密钥。请务必备份密钥，密钥丢失将导致无法恢复加密的数据！',
@@ -301,10 +280,10 @@ export function createAdvancedSection(
       return dropdown;
     });
   
-  // 删除远程多余文件（直接添加到syncSection中，移除所有样式）
+  // 远程文件删除
   const remoteFilesDeleteSetting = new Setting(syncSection)
     .setName('删除远程多余文件夹及文件')
-    .setDesc('请谨慎启用此选项，可能会删除未同步的远程文件和文件夹。')
+    .setDesc('警告: 启用此选项将删除远程存在但本地不存在的文件和文件夹！')
     .addToggle(toggle => toggle
       .setValue(tempSettings.deleteRemoteExtraFiles)
       .onChange(async (value) => {
@@ -321,15 +300,13 @@ export function createAdvancedSection(
         }
       }));
   
-  // 直接设置描述文本样式
-  remoteFilesDeleteSetting.descEl.style.fontWeight = 'bold';
-  remoteFilesDeleteSetting.descEl.style.color = 'var(--text-error)';
-  remoteFilesDeleteSetting.descEl.style.fontSize = '0.7em'; // 设置更小的字体大小(0.7em)
+  // 添加额外的警告样式
+  remoteFilesDeleteSetting.descEl.addClass('cs-small-warning-text');
   
-  // 删除本地多余文件（直接添加到syncSection中，移除所有样式）
+  // 本地文件删除
   const localFilesDeleteSetting = new Setting(syncSection)
     .setName('删除本地多余文件夹及文件')
-    .setDesc('请谨慎启用此选项，可能会删除未同步的本地文件和文件夹。')
+    .setDesc('警告: 启用此选项将删除本地存在但远程不存在的文件和文件夹！')
     .addToggle(toggle => toggle
       .setValue(tempSettings.deleteLocalExtraFiles)
       .onChange(async (value) => {
@@ -345,11 +322,9 @@ export function createAdvancedSection(
           );
         }
       }));
-      
-  // 直接设置描述文本样式
-  localFilesDeleteSetting.descEl.style.fontWeight = 'bold';
-  localFilesDeleteSetting.descEl.style.color = 'var(--text-error)';
-  localFilesDeleteSetting.descEl.style.fontSize = '0.7em'; // 设置更小的字体大小(0.7em)
+  
+  // 添加额外的警告样式
+  localFilesDeleteSetting.descEl.addClass('cs-small-warning-text');
   
   // 基础设置
   const baseSection = advancedSection.createEl('div', { cls: 'cloud-sync-settings cloud-sync-subsection' });
