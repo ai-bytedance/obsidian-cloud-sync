@@ -1,5 +1,5 @@
 import { PluginSettings, FilterMode } from '@models/plugin-settings';
-import { TAbstractFile, TFile } from 'obsidian';
+import { TAbstractFile, TFile, normalizePath } from 'obsidian';
 import { ModuleLogger } from '@services/log/log-service';
 import CloudSyncPlugin from '@main';
 
@@ -143,7 +143,7 @@ export class SyncFileFilter {
    * @returns 是否应该排除
    */
   static shouldExcludeFile(file: TFile | { path: string }, settings: PluginSettings): boolean {
-    const filePath = file.path;
+    const filePath = normalizePath(file.path);
     const extension = file instanceof TFile ? file.extension : filePath.split('.').pop() || '';
     
     // 检查路径长度限制（Windows MAX_PATH = 260）
@@ -210,7 +210,7 @@ export class SyncFileFilter {
    */
   static shouldExcludeDirectory(dirPath: string, settings: PluginSettings): boolean {
     // 标准化目录路径，确保以/结尾
-    const standardDirPath = dirPath.endsWith('/') ? dirPath : dirPath + '/';
+    const standardDirPath = normalizePath(dirPath.endsWith('/') ? dirPath : dirPath + '/');
     
     // 检查系统目录（以.开头的隐藏目录）
     const isSystemDir = standardDirPath.split('/').some(segment => segment.startsWith('.') && segment !== '.');

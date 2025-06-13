@@ -150,8 +150,24 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     
     // 使用Setting.setHeading()创建标题
     new Setting(icloudSection)
-      .setName('iCloud设置')
+      .setName('iCloud')
       .setHeading();
+    
+    // 添加开发中提示
+    const developingNotice = icloudSection.createEl('div', { 
+      cls: 'cloud-sync-info-panel cloud-sync-developing-notice' 
+    });
+    
+    const noticeIcon = developingNotice.createEl('span', {
+      cls: 'cloud-sync-tip-icon',
+      text: '🚧'
+    });
+    
+    const noticeText = developingNotice.createEl('p', {
+      cls: 'cloud-sync-tip-text'
+    });
+    
+    noticeText.setText('iCloud同步功能正在开发中，当前设置仅供参考，尚未实际可用。敬请期待！');
     
     // App ID设置
     new Setting(icloudSection)
@@ -271,8 +287,24 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     
     // 使用Setting.setHeading()创建标题
     new Setting(githubSection)
-      .setName('GitHub设置')
+      .setName('GitHub')
       .setHeading();
+    
+    // 添加开发中提示
+    const developingNotice = githubSection.createEl('div', { 
+      cls: 'cloud-sync-info-panel cloud-sync-developing-notice' 
+    });
+    
+    const noticeIcon = developingNotice.createEl('span', {
+      cls: 'cloud-sync-tip-icon',
+      text: '🚧'
+    });
+    
+    const noticeText = developingNotice.createEl('p', {
+      cls: 'cloud-sync-tip-text'
+    });
+    
+    noticeText.setText('GitHub同步功能正在开发中，当前设置仅供参考，尚未实际可用。敬请期待！');
     
     // 用户名设置
     new Setting(githubSection)

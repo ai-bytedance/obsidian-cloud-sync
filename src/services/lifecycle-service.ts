@@ -17,6 +17,7 @@ import { LogService } from '@services/log/log-service';
 import { SyncPathUtils } from '@src/utils/sync-path-utils';
 import { SyncFileFilter } from '@src/utils/sync-file-filter';
 import { configureMarkdownProcessor } from '@src/utils/markdown-processor';
+import { NetworkService } from '@services/network/network-service';
 
 /**
  * 生命周期服务类
@@ -51,7 +52,7 @@ export class LifecycleService {
     this.logService = new LogService(this.plugin.settings?.logLevel || 'info');
     this.plugin.logService = this.logService;
     
-    this.logService.info('开始初始化 Cloud Sync 插件');
+    this.logService.info('开始初始化 Cloud sync 插件');
     
     // 初始化服务
     this.initializeServices();
@@ -72,14 +73,14 @@ export class LifecycleService {
     this.registerEventListeners();
     
     // 记录初始化完成日志
-    this.logService.info('Cloud Sync 插件初始化完成');
+    this.logService.info('Cloud sync 插件初始化完成');
   }
   
   /**
    * 清理插件资源
    */
   cleanup(): void {
-    this.logService.info('卸载 Cloud Sync 插件');
+    this.logService.info('卸载 Cloud sync 插件');
     
     // 停止自动同步
     if (this.autoSyncManager) {
@@ -90,6 +91,11 @@ export class LifecycleService {
     if (this.fileEventHandler) {
       this.fileEventHandler.unregisterFileEvents();
     }
+    
+    // 卸载网络服务事件监听器
+    const networkService = NetworkService.getInstance();
+    networkService.unregisterEvents();
+    this.logService.info('网络服务事件监听器已卸载');
     
     // 导出最终日志（如果需要）
     if (this.plugin.settings.debugMode && this.logService) {
@@ -270,19 +276,22 @@ export class LifecycleService {
     // 添加设置选项卡
     this.settingTab = new CloudSyncSettingTab(this.plugin.app, this.plugin);
     this.plugin.addSettingTab(this.settingTab);
-    this.logService.info('设置UI已注册');
+    this.logService.info('设置选项卡已添加');
     
-    // 添加功能按钮到功能区
-    this.plugin.addRibbonIcon('cloud', 'Cloud Sync', async () => {
-      // 尝试手动同步
+    // 添加状态栏项
+    this.plugin.addStatusBarItem().setText('☁️');
+    this.logService.info('状态栏项已添加');
+    
+    // 添加功能区图标
+    this.plugin.addRibbonIcon('cloud', 'Cloud sync', async () => {
       try {
+        this.logService.info('通过功能区图标触发同步');
         await this.plugin.manualSync();
       } catch (error) {
-        this.logService.error('从功能区按钮触发同步失败', error);
-        this.notificationManager.show('sync-error', `同步失败: ${error.message || error}`, 5000);
+        this.logService.error('通过功能区图标触发同步失败', error);
       }
     });
-    this.logService.info('功能区按钮已添加');
+    this.logService.info('功能区图标已添加');
     
     // 添加命令
     this.plugin.addCommand({

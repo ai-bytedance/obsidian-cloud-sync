@@ -24,7 +24,7 @@ import { PluginService } from '@services/plugin-service';
 import { LogService } from '@services/log/log-service';
 
 /**
- * Obsidian云同步插件主类
+ * 云同步插件主类
  */
 export default class CloudSyncPlugin extends Plugin {
 	// 基本属性
@@ -51,7 +51,7 @@ export default class CloudSyncPlugin extends Plugin {
 	logService: LogService;
 	
 	// 同步超时保护
-	private syncTimeoutId: NodeJS.Timeout | null = null;
+	private syncTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	private readonly MAX_SYNC_DURATION = 10 * 60 * 1000; // 10分钟超时
 	
 	/**

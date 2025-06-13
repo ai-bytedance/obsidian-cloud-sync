@@ -46,15 +46,12 @@ export class FileEventHandler {
       this.plugin.app.vault.on('create', (file) => {
         // 检查是否应该忽略
         if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
-          this.logger.info(`忽略创建事件: ${file.path}`);
           return;
         }
         
         this.logger.info(`文件创建: ${file.path}`);
-        // 这里可以根据需要触发同步操作，例如：
-        // 1. 即时同步
-        // 2. 添加到待同步队列
-        // 3. 重置自动同步计时器
+        // 触发自动同步或其他操作
+        this.debouncedSync();
       })
     );
     
@@ -63,12 +60,12 @@ export class FileEventHandler {
       this.plugin.app.vault.on('modify', (file) => {
         // 检查是否应该忽略
         if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
-          this.logger.info(`忽略修改事件: ${file.path}`);
           return;
         }
         
         this.logger.info(`文件修改: ${file.path}`);
-        // 同上，根据需要触发同步操作
+        // 触发自动同步或其他操作
+        this.debouncedSync();
       })
     );
     
@@ -77,12 +74,12 @@ export class FileEventHandler {
       this.plugin.app.vault.on('delete', (file) => {
         // 检查是否应该忽略
         if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
-          this.logger.info(`忽略删除事件: ${file.path}`);
           return;
         }
         
         this.logger.info(`文件删除: ${file.path}`);
-        // 同上，根据需要触发同步操作
+        // 触发自动同步或其他操作
+        this.debouncedSync();
       })
     );
     
@@ -91,12 +88,12 @@ export class FileEventHandler {
       this.plugin.app.vault.on('rename', (file, oldPath) => {
         // 检查是否应该忽略
         if (SyncFileFilter.shouldExcludeFile(file, this.plugin.settings)) {
-          this.logger.info(`忽略重命名事件: ${oldPath} -> ${file.path}`);
           return;
         }
         
         this.logger.info(`文件重命名: ${oldPath} -> ${file.path}`);
-        // 同上，根据需要触发同步操作
+        // 触发自动同步或其他操作
+        this.debouncedSync();
       })
     );
     

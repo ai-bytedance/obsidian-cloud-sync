@@ -1,4 +1,4 @@
-import { Setting } from 'obsidian';
+import { Setting, TextComponent, ToggleComponent, ExtraButtonComponent, normalizePath } from 'obsidian';
 import { PluginSettings, FilterMode } from '@models/plugin-settings';
 import CloudSyncPlugin from '@main';
 import { SyncFileFilter } from '@src/utils/sync-file-filter';
@@ -45,7 +45,7 @@ export function createGeneralSection(
   
   // 使用Setting.setHeading()创建标题
   new Setting(generalSection)
-    .setName('通用设置')
+    .setName('通用')
     .setHeading();
   
   // 保存自动同步开关的引用
@@ -340,13 +340,15 @@ export function createGeneralSection(
     const textArea = text.setValue(tempSettings.ignoreFolders.join(', '))
       .setPlaceholder('例如: .git, 配置目录, node_*, 系统文件夹/.*')
       .onChange(async (value) => {
-        tempSettings.ignoreFolders = value.split(',').map(item => item.trim()).filter(item => !!item);
+        tempSettings.ignoreFolders = value.split(',')
+          .map(item => item.trim())
+          .filter(item => !!item)
+          .map(item => normalizePath(item));
         await plugin.saveSettings(tempSettings);
       });
     
     // 设置文本区域样式
-    textArea.inputEl.style.width = '300px';
-    textArea.inputEl.style.height = '60px';
+    textArea.inputEl.addClass('cs-textarea');
     
     return textArea;
   });
@@ -361,13 +363,15 @@ export function createGeneralSection(
     const textArea = text.setValue(tempSettings.ignoreFiles.join(', '))
       .setPlaceholder('例如: .DS_Store, desktop.ini, *.tmp, thumb.*\\.db')
       .onChange(async (value) => {
-        tempSettings.ignoreFiles = value.split(',').map(item => item.trim()).filter(item => !!item);
+        tempSettings.ignoreFiles = value.split(',')
+          .map(item => item.trim())
+          .filter(item => !!item)
+          .map(item => normalizePath(item));
         await plugin.saveSettings(tempSettings);
       });
     
     // 设置文本区域样式
-    textArea.inputEl.style.width = '300px';
-    textArea.inputEl.style.height = '60px';
+    textArea.inputEl.addClass('cs-textarea');
     
     return textArea;
   });
@@ -382,13 +386,14 @@ export function createGeneralSection(
     const textArea = text.setValue(tempSettings.ignoreExtensions.join(', '))
       .setPlaceholder('例如: tmp, bak, t?p, sw.$')
       .onChange(async (value) => {
-        tempSettings.ignoreExtensions = value.split(',').map(item => item.trim()).filter(item => !!item);
+        tempSettings.ignoreExtensions = value.split(',')
+          .map(item => item.trim())
+          .filter(item => !!item);
         await plugin.saveSettings(tempSettings);
       });
     
     // 设置文本区域样式
-    textArea.inputEl.style.width = '300px';
-    textArea.inputEl.style.height = '60px';
+    textArea.inputEl.addClass('cs-textarea');
     
     return textArea;
   });

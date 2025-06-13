@@ -37,7 +37,7 @@ export function createCloudProvidersSection(
   
   // 使用Setting.setHeading()创建标题
   new Setting(providersSection)
-    .setName('云盘同步')
+    .setName('云盘')
     .setHeading();
   
   // WebDAV选项
@@ -85,13 +85,6 @@ export function createCloudProvidersSection(
             tempSettings.providerSettings.webdav.enabled = false;
             logger?.info('将WebDAV标记为未启用');
           }
-          
-          // 移除以下注释中的代码，不再自动关闭全局同步开关
-          // 如果没有其他启用的提供商，自动关闭全局同步开关
-          // if (tempSettings.enabledProviders.length === 0) {
-          //   logger?.info('没有启用的提供商，自动关闭全局同步开关');
-          //   tempSettings.enableSync = false;
-          // }
         }
         
         // 保存设置
@@ -103,162 +96,66 @@ export function createCloudProvidersSection(
       }));
   
   // Google Drive选项
-  new Setting(providersSection)
+  const googleDriveSetting = new Setting(providersSection)
     .setName('Google Drive')
-    .setDesc('使用Google Drive同步数据')
+    .setDesc('【开发中】使用Google Drive同步数据')
     .addToggle(toggle => toggle
-      .setValue(tempSettings.enabledProviders.includes('gdrive'))
-      .onChange(async (value) => {
-        if (value) {
-          // 添加Google Drive作为启用的提供商
-          if (!tempSettings.enabledProviders.includes('gdrive')) {
-            tempSettings.enabledProviders.push('gdrive');
-            
-            // 初始化Google Drive设置
-            if (!tempSettings.providerSettings.gdrive) {
-              tempSettings.providerSettings.gdrive = {
-                enabled: true,
-                clientId: '',
-                clientSecret: '',
-                syncPath: ''
-              };
-            } else {
-              tempSettings.providerSettings.gdrive.enabled = true;
-            }
-          }
-        } else {
-          // 从启用的提供商中移除Google Drive
-          tempSettings.enabledProviders = tempSettings.enabledProviders.filter(p => p !== 'gdrive');
-          
-          // 禁用Google Drive设置
-          if (tempSettings.providerSettings.gdrive) {
-            tempSettings.providerSettings.gdrive.enabled = false;
-          }
-        }
-        
-        await plugin.saveSettings(tempSettings);
-        await displayFunc(); // 刷新界面以显示/隐藏Google Drive设置
-      }))
-    .setDisabled(true); // 暂时禁用，因为尚未实现
+      .setValue(false)
+      .setDisabled(true));
+  
+  // 添加点击事件处理，显示友好提示
+  googleDriveSetting.settingEl.addEventListener('click', () => {
+    plugin.notificationManager.show('gdrive-dev', 'Google Drive同步功能正在开发中，敬请期待！', 3000);
+  });
+  
+  // 添加开发中的视觉提示
+  googleDriveSetting.settingEl.addClass('cloud-sync-developing');
   
   // OneDrive选项
-  new Setting(providersSection)
+  const oneDriveSetting = new Setting(providersSection)
     .setName('OneDrive')
-    .setDesc('使用OneDrive同步数据')
+    .setDesc('【开发中】使用OneDrive同步数据')
     .addToggle(toggle => toggle
-      .setValue(tempSettings.enabledProviders.includes('onedrive'))
-      .onChange(async (value) => {
-        if (value) {
-          // 添加OneDrive作为启用的提供商
-          if (!tempSettings.enabledProviders.includes('onedrive')) {
-            tempSettings.enabledProviders.push('onedrive');
-            
-            // 初始化OneDrive设置
-            if (!tempSettings.providerSettings.onedrive) {
-              tempSettings.providerSettings.onedrive = {
-                enabled: true,
-                clientId: '',
-                clientSecret: '',
-                syncPath: ''
-              };
-            } else {
-              tempSettings.providerSettings.onedrive.enabled = true;
-            }
-          }
-        } else {
-          // 从启用的提供商中移除OneDrive
-          tempSettings.enabledProviders = tempSettings.enabledProviders.filter(p => p !== 'onedrive');
-          
-          // 禁用OneDrive设置
-          if (tempSettings.providerSettings.onedrive) {
-            tempSettings.providerSettings.onedrive.enabled = false;
-          }
-        }
-        
-        await plugin.saveSettings(tempSettings);
-        await displayFunc(); // 刷新界面以显示/隐藏OneDrive设置
-      }))
-    .setDisabled(true); // 暂时禁用，因为尚未实现
+      .setValue(false)
+      .setDisabled(true));
+  
+  // 添加点击事件处理，显示友好提示
+  oneDriveSetting.settingEl.addEventListener('click', () => {
+    plugin.notificationManager.show('onedrive-dev', 'OneDrive同步功能正在开发中，敬请期待！', 3000);
+  });
+  
+  // 添加开发中的视觉提示
+  oneDriveSetting.settingEl.addClass('cloud-sync-developing');
   
   // iCloud选项
-  new Setting(providersSection)
+  const iCloudSetting = new Setting(providersSection)
     .setName('iCloud')
-    .setDesc('使用iCloud同步数据')
+    .setDesc('【开发中】使用iCloud同步数据')
     .addToggle(toggle => toggle
-      .setValue(tempSettings.enabledProviders.includes('icloud'))
-      .onChange(async (value) => {
-        if (value) {
-          // 添加iCloud作为启用的提供商
-          if (!tempSettings.enabledProviders.includes('icloud')) {
-            tempSettings.enabledProviders.push('icloud');
-            
-            // 初始化iCloud设置
-            if (!tempSettings.providerSettings.icloud) {
-              tempSettings.providerSettings.icloud = {
-                enabled: true,
-                appId: '',
-                password: '',
-                syncPath: ''
-              };
-            } else {
-              tempSettings.providerSettings.icloud.enabled = true;
-            }
-          }
-        } else {
-          // 从启用的提供商中移除iCloud
-          tempSettings.enabledProviders = tempSettings.enabledProviders.filter(p => p !== 'icloud');
-          
-          // 禁用iCloud设置
-          if (tempSettings.providerSettings.icloud) {
-            tempSettings.providerSettings.icloud.enabled = false;
-          }
-        }
-        
-        await plugin.saveSettings(tempSettings);
-        await displayFunc(); // 刷新界面以显示/隐藏iCloud设置
-      }))
-    .setDisabled(true); // 暂时禁用，因为尚未实现
+      .setValue(false)
+      .setDisabled(true));
+  
+  // 添加点击事件处理，显示友好提示
+  iCloudSetting.settingEl.addEventListener('click', () => {
+    plugin.notificationManager.show('icloud-dev', 'iCloud同步功能正在开发中，敬请期待！', 3000);
+  });
+  
+  // 添加开发中的视觉提示
+  iCloudSetting.settingEl.addClass('cloud-sync-developing');
 
   // GitHub选项
-  new Setting(providersSection)
+  const gitHubSetting = new Setting(providersSection)
     .setName('GitHub')
-    .setDesc('使用GitHub同步数据')
+    .setDesc('【开发中】使用GitHub同步数据')
     .addToggle(toggle => toggle
-      .setValue(tempSettings.enabledProviders.includes('github'))
-      .onChange(async (value) => {
-        if (value) {
-          // 添加GitHub作为启用的提供商
-          if (!tempSettings.enabledProviders.includes('github')) {
-            tempSettings.enabledProviders.push('github');
-            
-            // 初始化GitHub设置
-            if (!tempSettings.providerSettings.github) {
-              tempSettings.providerSettings.github = {
-                enabled: true,
-                username: '',
-                token: '',
-                repository: '',
-                branch: '',
-                syncPath: ''
-              };
-            } else {
-              tempSettings.providerSettings.github.enabled = true;
-            }
-          }
-        } else {
-          // 从启用的提供商中移除GitHub
-          tempSettings.enabledProviders = tempSettings.enabledProviders.filter(p => p !== 'github');
-          
-          // 禁用GitHub设置
-          if (tempSettings.providerSettings.github) {
-            tempSettings.providerSettings.github.enabled = false;
-          }
-        }
-        
-        await plugin.saveSettings(tempSettings);
-        await displayFunc(); // 刷新界面以显示/隐藏GitHub设置
-      }))
-    .setDisabled(true); // 暂时禁用，因为尚未实现
+      .setValue(false)
+      .setDisabled(true));
   
-  // 其他云盘选项...以后添加
+  // 添加点击事件处理，显示友好提示
+  gitHubSetting.settingEl.addEventListener('click', () => {
+    plugin.notificationManager.show('github-dev', 'GitHub同步功能正在开发中，敬请期待！', 3000);
+  });
+  
+  // 添加开发中的视觉提示
+  gitHubSetting.settingEl.addClass('cloud-sync-developing');
 } 

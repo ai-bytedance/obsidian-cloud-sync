@@ -5,6 +5,7 @@
  */
 import { LogLevel } from '@models/plugin-settings';
 import { App, TFile, normalizePath } from 'obsidian';
+import { around } from 'monkey-around';
 
 // 日志条目接口
 interface LogEntry {
@@ -98,6 +99,8 @@ export class LogService {
   private readonly MAX_LOG_FILE_SIZE = 5 * 1024 * 1024;
   // 保留的历史日志文件数量
   private readonly MAX_LOG_HISTORY_FILES = 10;
+  // 存储卸载函数
+  private uninstallConsolePatches: (() => void) | null = null;
 
   /**
    * 构造函数
@@ -122,8 +125,7 @@ export class LogService {
   }
 
   /**
-   * 拦截控制台输出
-   * 确保所有console输出也被记录到日志系统
+   * 拦截控制台方法以捕获日志
    */
   interceptConsole(): void {
     if (this.consoleIntercepted) {
@@ -132,31 +134,48 @@ export class LogService {
     
     const self = this;
     
-    // 覆盖控制台方法
-    console.log = function(...args: any[]) {
-      self.captureConsoleOutput('info', args);
-      self.originalConsole.log.apply(console, args);
+    // 保存原始控制台方法引用
+    this.originalConsole = {
+      log: console.log,
+      debug: console.debug,
+      info: console.info,
+      warn: console.warn,
+      error: console.error
     };
     
-    console.debug = function(...args: any[]) {
-      self.captureConsoleOutput('debug', args);
-      self.originalConsole.debug.apply(console, args);
-    };
-    
-    console.info = function(...args: any[]) {
-      self.captureConsoleOutput('info', args);
-      self.originalConsole.info.apply(console, args);
-    };
-    
-    console.warn = function(...args: any[]) {
-      self.captureConsoleOutput('warning', args);
-      self.originalConsole.warn.apply(console, args);
-    };
-    
-    console.error = function(...args: any[]) {
-      self.captureConsoleOutput('error', args);
-      self.originalConsole.error.apply(console, args);
-    };
+    // 使用monkey-around安全地修补console方法
+    this.uninstallConsolePatches = around(console, {
+      log(originalMethod: typeof console.log) {
+        return function(...args: any[]) {
+          self.captureConsoleOutput('info', args);
+          return originalMethod.apply(console, args);
+        };
+      },
+      debug(originalMethod: typeof console.debug) {
+        return function(...args: any[]) {
+          self.captureConsoleOutput('debug', args);
+          return originalMethod.apply(console, args);
+        };
+      },
+      info(originalMethod: typeof console.info) {
+        return function(...args: any[]) {
+          self.captureConsoleOutput('info', args);
+          return originalMethod.apply(console, args);
+        };
+      },
+      warn(originalMethod: typeof console.warn) {
+        return function(...args: any[]) {
+          self.captureConsoleOutput('warning', args);
+          return originalMethod.apply(console, args);
+        };
+      },
+      error(originalMethod: typeof console.error) {
+        return function(...args: any[]) {
+          self.captureConsoleOutput('error', args);
+          return originalMethod.apply(console, args);
+        };
+      }
+    });
     
     this.consoleIntercepted = true;
     this.info('控制台输出已拦截');
@@ -170,12 +189,11 @@ export class LogService {
       return;
     }
     
-    // 恢复原始方法
-    console.log = this.originalConsole.log;
-    console.debug = this.originalConsole.debug;
-    console.info = this.originalConsole.info;
-    console.warn = this.originalConsole.warn;
-    console.error = this.originalConsole.error;
+    // 使用monkey-around提供的卸载函数恢复原始方法
+    if (this.uninstallConsolePatches) {
+      this.uninstallConsolePatches();
+      this.uninstallConsolePatches = null;
+    }
     
     this.consoleIntercepted = false;
     this.info('控制台输出拦截已还原');
@@ -427,7 +445,7 @@ export class LogService {
       : this.logs;
 
     // 构建日志字符串
-    let result = `=== Cloud Sync 日志 ===\n`;
+    let result = `=== Cloud sync 日志 ===\n`;
     result += `导出时间: ${new Date().toISOString()}\n`;
     result += `日志级别: ${levelFilter || this.currentLevel}\n`;
     result += `日志条目数: ${filteredLogs.length}\n`;
@@ -558,7 +576,7 @@ export class LogService {
         const existingContent = await adapter.read(this.logFilePath);
         await adapter.write(this.logFilePath, existingContent + logLine);
       } else {
-        const header = `=== Cloud Sync 日志 ===\n创建于: ${new Date().toISOString()}\n\n`;
+        const header = `=== Cloud sync 日志 ===\n创建于: ${new Date().toISOString()}\n\n`;
         await adapter.write(this.logFilePath, header + logLine);
       }
     } catch (error) {

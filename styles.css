@@ -2,6 +2,27 @@
 
 /* 组件样式 - 从JavaScript中迁移的样式 */
 
+/* 文本区域样式 */
+.cs-textarea {
+  width: 300px !important;
+  height: 60px !important;
+}
+
+/* 粗体警告文本 */
+.cs-warning-bold {
+  font-weight: bold;
+}
+
+/* 按钮容器间距 */
+.cs-button-container-gap {
+  gap: 6px;
+}
+
+/* 相对定位容器 */
+.cs-relative-container {
+  position: relative;
+}
+
 /* 通用输入框样式 */
 .cs-input-with-icon {
   padding-right: 30px !important;
@@ -365,4 +386,54 @@
   .cloud-sync-jianguoyun-setting .setting-item-description {
     font-size: 0.8em !important;
   }
+}
+
+/* 开发中的云盘服务样式 */
+.cloud-sync-developing {
+  position: relative;
+  opacity: 0.7;
+}
+
+.cloud-sync-developing::after {
+  content: "开发中";
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transform: translate(-5px, 0);
+}
+
+.cloud-sync-developing .setting-item-description {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.cloud-sync-developing .toggle-container {
+  opacity: 0.5;
+}
+
+/* 功能开发中提示框样式 */
+.cloud-sync-developing-notice {
+  background-color: var(--background-modifier-border);
+  border-left: 4px solid var(--interactive-accent);
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.cloud-sync-developing-notice .cloud-sync-tip-icon {
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+.cloud-sync-developing-notice .cloud-sync-tip-text {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text-muted);
 } 

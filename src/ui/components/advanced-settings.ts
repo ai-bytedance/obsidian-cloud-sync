@@ -37,7 +37,7 @@ export function createAdvancedSection(
   
   // 使用Setting.setHeading()创建标题
   new Setting(advancedSection)
-    .setName('高级设置')
+    .setName('高级')
     .setHeading();
   
   // 安全设置
@@ -45,7 +45,7 @@ export function createAdvancedSection(
   
   // 使用Setting.setHeading()创建子标题
   new Setting(securitySection)
-    .setName('安全设置')
+    .setName('安全')
     .setHeading();
   
   // 启用加密
@@ -74,7 +74,7 @@ export function createAdvancedSection(
       cls: 'setting-item-description cloud-sync-warning cs-warning-text'
     });
     // 设置警告文字为粗体
-    warningEl.style.fontWeight = 'bold';
+    warningEl.addClass('cs-warning-bold');
   }
   
   // 加密设置
@@ -110,7 +110,7 @@ export function createAdvancedSection(
         // 创建一个容器来包含输入框和图标
         const containerEl = inputEl.parentElement;
         if (containerEl) {
-          containerEl.style.position = 'relative';
+          containerEl.addClass('cs-relative-container');
           
           // 添加显示/隐藏按钮到输入框容器中
           const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
@@ -138,7 +138,7 @@ export function createAdvancedSection(
     encryptionKeyButtonContainer.style.flexShrink = '0';
     encryptionKeyButtonContainer.addClass('cs-button-container');
     // 按钮之间的间距保留
-    encryptionKeyButtonContainer.style.gap = '6px';
+    encryptionKeyButtonContainer.addClass('cs-button-container-gap');
     
     // 添加生成随机密钥按钮
     const genKeyButton = new ButtonComponent(encryptionKeyButtonContainer);
@@ -196,7 +196,7 @@ export function createAdvancedSection(
   
   // 使用Setting.setHeading()创建子标题
   new Setting(syncSection)
-    .setName('同步设置')
+    .setName('同步选项')
     .setHeading();
   
   // 冲突策略
@@ -327,15 +327,15 @@ export function createAdvancedSection(
   localFilesDeleteSetting.descEl.addClass('cs-small-warning-text');
   
   // 基础设置
-  const baseSection = advancedSection.createEl('div', { cls: 'cloud-sync-settings cloud-sync-subsection' });
+  const basicSection = advancedSection.createEl('div', { cls: 'cloud-sync-settings cloud-sync-subsection' });
   
   // 使用Setting.setHeading()创建子标题
-  new Setting(baseSection)
-    .setName('基础设置')
+  new Setting(basicSection)
+    .setName('基础选项')
     .setHeading();
   
   // 调试模式
-  new Setting(baseSection)
+  new Setting(basicSection)
     .setName('调试模式')
     .setDesc('启用详细日志记录')
     .addToggle(toggle => toggle
@@ -358,7 +358,7 @@ export function createAdvancedSection(
   
   // 日志级别
   if (tempSettings.debugMode) {
-    new Setting(baseSection)
+    new Setting(basicSection)
       .setName('日志级别')
       .setDesc('设置日志记录的详细程度')
       .addDropdown(dropdown => dropdown
@@ -374,7 +374,7 @@ export function createAdvancedSection(
   }
   
   // 导出日志
-  new Setting(baseSection)
+  new Setting(basicSection)
     .setName('导出日志')
     .setDesc('导出插件日志以便排查问题')
     .addButton(button => button
@@ -403,10 +403,15 @@ export function createAdvancedSection(
           logger?.info(`开始导出日志，使用级别: ${logLevel}`);
           
           // 明确传递日志级别参数
-          logContent = plugin.logService.export(logLevel);
+          try {
+            logContent = plugin.logService.export(logLevel);
+          } catch (e) {
+            logger?.error('获取日志内容失败', e);
+            logContent = "=== Cloud sync 日志 ===\n时间: " + new Date().toISOString() + "\n日志服务未初始化，无法获取日志数据";
+          }
         } else {
           // 兼容性处理，如果未找到日志服务
-          logContent = "=== Cloud Sync 日志 ===\n时间: " + new Date().toISOString() + "\n日志服务未初始化，无法获取日志数据";
+          logContent = "=== Cloud sync 日志 ===\n时间: " + new Date().toISOString() + "\n日志服务未初始化，无法获取日志数据";
         }
         
         // 创建一个下载链接
@@ -436,7 +441,7 @@ export function createAdvancedSection(
       }));
   
   // 网络检测
-  new Setting(baseSection)
+  new Setting(basicSection)
     .setName('网络检测')
     .setDesc('仅在WiFi网络同步')
     .addToggle(toggle => toggle
@@ -447,7 +452,7 @@ export function createAdvancedSection(
       }));
   
   // 清除缓存
-  new Setting(baseSection)
+  new Setting(basicSection)
     .setName('清除缓存')
     .setDesc('清除同步缓存数据')
     .addButton(button => button

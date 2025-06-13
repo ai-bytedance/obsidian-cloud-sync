@@ -5,6 +5,7 @@
  */
 import { ModuleLogger } from '@services/log/log-service';
 import CloudSyncPlugin from '@main';
+import { Platform } from 'obsidian';
 
 /**
  * 网络类型枚举
@@ -24,6 +25,10 @@ export class NetworkService {
   private static instance: NetworkService;
   private networkStatusListeners: Array<(isOnline: boolean, type: NetworkType) => void> = [];
   private logger: ModuleLogger | null = null;
+  private eventsRegistered: boolean = false;
+  private onlineHandler: () => void;
+  private offlineHandler: () => void;
+  private connectionChangeHandler: () => void;
 
   /**
    * 获取实例（单例模式）
@@ -50,15 +55,57 @@ export class NetworkService {
    * 构造函数
    */
   private constructor() {
+    // 创建事件处理函数
+    this.onlineHandler = () => this.notifyListeners();
+    this.offlineHandler = () => this.notifyListeners();
+    this.connectionChangeHandler = () => this.notifyListeners();
+    
+    // 注册事件
+    this.registerEvents();
+  }
+
+  /**
+   * 注册网络事件监听器
+   */
+  public registerEvents(): void {
+    if (this.eventsRegistered) {
+      return;
+    }
+    
     // 添加网络状态变化事件监听
-    window.addEventListener('online', () => this.notifyListeners());
-    window.addEventListener('offline', () => this.notifyListeners());
+    window.addEventListener('online', this.onlineHandler);
+    window.addEventListener('offline', this.offlineHandler);
     
     // 如果支持网络信息API，也监听网络类型变化
     if (this.isNetworkInfoApiSupported()) {
       // @ts-ignore - 这是实验性API，TypeScript可能没有类型定义
-      navigator.connection.addEventListener('change', () => this.notifyListeners());
+      navigator.connection.addEventListener('change', this.connectionChangeHandler);
     }
+    
+    this.eventsRegistered = true;
+    this.logger?.info('网络事件监听器已注册');
+  }
+  
+  /**
+   * 卸载网络事件监听器
+   */
+  public unregisterEvents(): void {
+    if (!this.eventsRegistered) {
+      return;
+    }
+    
+    // 移除网络状态变化事件监听
+    window.removeEventListener('online', this.onlineHandler);
+    window.removeEventListener('offline', this.offlineHandler);
+    
+    // 如果支持网络信息API，也移除网络类型变化监听
+    if (this.isNetworkInfoApiSupported()) {
+      // @ts-ignore - 这是实验性API，TypeScript可能没有类型定义
+      navigator.connection.removeEventListener('change', this.connectionChangeHandler);
+    }
+    
+    this.eventsRegistered = false;
+    this.logger?.info('网络事件监听器已卸载');
   }
 
   /**
@@ -161,9 +208,8 @@ export class NetworkService {
     }
     
     // 在PC平台上，如果是Windows或macOS，且Online，很可能是以太网
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isWindows = userAgent.indexOf('windows') !== -1;
-    const isMac = userAgent.indexOf('macintosh') !== -1;
+    const isWindows = Platform.isWin;
+    const isMac = Platform.isMacOS;
     
     // 简单假设：在桌面系统上，如果在线，可能是以太网连接
     // 这是一个保守的估计，实际应用中可能需要更复杂的判断
@@ -180,23 +226,19 @@ export class NetworkService {
    * @returns 是否为PC平台
    */
   public isPCPlatform(): boolean {
-    // 检查常见的PC平台特征
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isWindows = userAgent.indexOf('windows') !== -1;
-    const isMac = userAgent.indexOf('macintosh') !== -1;
-    const isLinux = userAgent.indexOf('linux') !== -1 && userAgent.indexOf('android') === -1;
+    // 使用Obsidian的Platform API检查平台
+    const isWindows = Platform.isWin;
+    const isMac = Platform.isMacOS;
+    const isLinux = Platform.isLinux;
+    const isDesktop = Platform.isDesktop;
     
-    // Obsidian桌面版也是PC平台
-    const isObsidianDesktop = userAgent.indexOf('obsidian') !== -1 && 
-                              userAgent.indexOf('electron') !== -1;
-    
-    const result = isWindows || isMac || isLinux || isObsidianDesktop;
+    const result = isWindows || isMac || isLinux || isDesktop;
     if (this.logger) {
       let platform = '';
       if (isWindows) platform = 'Windows';
       else if (isMac) platform = 'Mac';
       else if (isLinux) platform = 'Linux';
-      else if (isObsidianDesktop) platform = 'Obsidian Desktop';
+      else if (isDesktop) platform = 'Desktop';
       
       if (platform) {
         this.logger.info(`检测到PC平台: ${platform}`);
@@ -248,42 +290,32 @@ export class NetworkService {
           return true;  // 不确定或可能是误判，允许同步
         }
       }
-    } else {
-      // 移动设备上，仅WiFi网络允许同步
-      if (networkType === NetworkType.WIFI) {
-        this.logger?.info('移动设备: WiFi连接，允许同步');
-        return true;
-      } else {
-        this.logger?.info(`移动设备: ${networkType} 连接，不允许同步`);
-      }
     }
     
-    // 其他情况（确定的蜂窝、离线等）不同步
-    if (networkType === NetworkType.NONE) {
-      this.logger?.info('网络离线，不允许同步');
-    } else {
-      this.logger?.info(`网络类型 ${networkType} 不符合同步条件`);
+    // 移动平台上，只允许WiFi连接同步
+    if (networkType === NetworkType.WIFI) {
+      this.logger?.info('移动平台: WiFi连接，允许同步');
+      return true;
     }
+    
+    this.logger?.info(`移动平台: ${networkType} 连接，不允许同步`);
     return false;
   }
 
   /**
-   * 尝试进一步确认是否真的是蜂窝移动数据连接
-   * 在PC平台上大多数情况下不是真正的移动数据
+   * 更精确地判断是否真的是移动数据连接
+   * 这是一个启发式方法，不保证100%准确
    * @private
-   * @returns 是否确定为蜂窝移动数据
+   * @returns 是否确定是移动数据连接
    */
   private isTrueCellularConnection(): boolean {
-    // 简化实现：在PC平台上假设不是真正的移动数据
-    // 这避免了错误的网络类型检测阻止同步
+    // 如果是PC平台，移动数据连接的可能性较低
     if (this.isPCPlatform()) {
-      this.logger?.info('PC平台上的移动数据连接可能是误判');
+      // 在PC平台上，如果没有其他明确证据表明是移动数据，则假设不是
       return false;
     }
     
-    // 对于移动设备，依赖原始API判断
-    // 如果有必要，可以在这里添加更复杂的检测逻辑
-    this.logger?.info('移动设备上的移动数据连接判定为真实');
+    // 在移动设备上，如果网络信息API报告为移动数据，则很可能是准确的
     return true;
   }
 

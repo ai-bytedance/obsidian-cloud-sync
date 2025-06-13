@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "monkey-around": "^2.3.0",
     "webdav": "^5.8.0"
   }
 }

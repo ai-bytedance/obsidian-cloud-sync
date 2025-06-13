@@ -11,7 +11,7 @@ import { ModuleLogger } from '@services/log/log-service';
  * @author Bing
  */
 export class AutoSyncManager {
-  private intervalId: NodeJS.Timeout | null = null;
+  private intervalId: ReturnType<typeof setTimeout> | null = null;
   private lastSyncTime: number = 0;
   // 添加状态跟踪变量
   private isRunning: boolean = false;

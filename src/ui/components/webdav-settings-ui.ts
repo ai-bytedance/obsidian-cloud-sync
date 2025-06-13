@@ -42,11 +42,11 @@ export function createWebDAVSection(
   
   // 使用Setting.setHeading()创建标题
   new Setting(webdavSection)
-    .setName('WebDAV设置')
+    .setName('WebDAV')
     .setHeading();
   
   // 创建防抖函数，避免用户快速输入时多次尝试初始化
-  let debounceTimer: NodeJS.Timeout | null = null;
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   const debounceConfigCheck = (delay: number = 1000) => {
     if (debounceTimer) {
       clearTimeout(debounceTimer);
@@ -184,7 +184,7 @@ export function createWebDAVSection(
       // 创建一个容器来包含输入框和图标
       const containerEl = inputEl.parentElement;
       if (containerEl) {
-        containerEl.style.position = 'relative';
+        containerEl.addClass('cs-relative-container');
         
         // 添加显示/隐藏按钮到输入框容器中
         const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
@@ -248,7 +248,7 @@ export function createWebDAVSection(
       // 创建一个容器来包含输入框和图标
       const containerEl = inputEl.parentElement;
       if (containerEl) {
-        containerEl.style.position = 'relative';
+        containerEl.addClass('cs-relative-container');
         
         // 添加显示/隐藏按钮到输入框容器中
         const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
@@ -273,7 +273,7 @@ export function createWebDAVSection(
     .setName('服务器URL')
     .setDesc('WebDAV服务器URL地址')
     .addText(text => {
-      let timerId: NodeJS.Timeout | null = null;
+      let timerId: ReturnType<typeof setTimeout> | null = null;
       
       const inputEl = text.inputEl;
       // 设置输入框宽度为更宽

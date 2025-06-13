@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, TFile, TFolder, Platform, normalizePath } from 'obsidian';
 import { StorageProvider, FileInfo, ConnectionStatus } from '@providers/common/storage-provider';
 import { NotificationManager } from '@services/notification/notification-manager';
 import { PluginSettings, StorageProviderType } from '@models/plugin-settings';
@@ -19,7 +19,7 @@ import { LogService, ModuleLogger } from '@services/log/log-service';
 export class SyncManager {
   private lastSyncTime: number = 0; // 跟踪上次同步时间
   private syncLockAcquired: boolean = false; // 添加同步锁
-  private syncLockTimeout: NodeJS.Timeout | null = null; // 添加超时计时器
+  private syncLockTimeout: ReturnType<typeof setTimeout> | null = null; // 添加超时计时器
   private readonly MAX_SYNC_DURATION = 5 * 60 * 1000; // 5分钟超时
   private networkService: NetworkService;
   private logger: ModuleLogger;
@@ -56,7 +56,7 @@ export class SyncManager {
       }
       
       // 确保configDir被添加到ignoreFolders中
-      const configDir = this.plugin.app.vault.configDir;
+      const configDir = normalizePath(this.plugin.app.vault.configDir);
       if (configDir && this.plugin.settings.ignoreFolders) {
         // 检查configDir是否已经存在于ignoreFolders中
         const configDirInList = this.plugin.settings.ignoreFolders.some(
@@ -73,7 +73,7 @@ export class SyncManager {
       if (this.plugin.settings.networkDetection) {
         // 记录当前网络类型，用于调试
         const networkType = this.networkService.getNetworkType();
-        const isPCPlatform = this.networkService.isPCPlatform ? this.networkService.isPCPlatform() : false;
+        const isPCPlatform = Platform.isDesktop;
         
         // 记录更详细的网络状态日志
         this.logger.info(`[网络检测] 当前平台: ${isPCPlatform ? 'PC' : '移动设备'}, 网络类型: ${networkType}`);
