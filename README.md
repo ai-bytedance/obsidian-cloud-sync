@@ -1,7 +1,3 @@
-<!-- Keep these links. Translations will automatically update with the README. -->
-[English](https://www.readme-i18n.com/ai-bytedance/obsidian-cloud-sync?lang=en) | 
-[日本語](https://www.readme-i18n.com/ai-bytedance/obsidian-cloud-sync?lang=ja) | 
-
 # 云盘同步插件
 
 ## 开发状态：Alpha 版本
