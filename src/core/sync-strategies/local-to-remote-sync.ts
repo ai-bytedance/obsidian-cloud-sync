@@ -4,6 +4,7 @@ import { SyncStrategyBase, LocalFileInfo } from './sync-strategy-base';
 import { SyncPathUtils } from '@src/utils/sync-path-utils';
 import { processMarkdownContent } from '@src/utils/markdown-processor';
 import { isBinaryFileType } from '@providers/webdav/webdav-parsers';
+import { normalizePath } from 'obsidian';
 import CloudSyncPlugin from '@main';
 
 /**
@@ -481,9 +482,9 @@ export class LocalToRemoteSync extends SyncStrategyBase {
     // 如果没有指定基础路径，则所有路径都认为在范围内
     if (!basePath) return true;
     
-    // 确保路径格式一致，移除前导斜杠
-    const normalizedRemotePath = remotePath.replace(/^\/+/, '');
-    const normalizedBasePath = basePath.replace(/^\/+/, '');
+    // 确保路径格式一致，使用normalizePath清理用户定义的路径
+    const normalizedRemotePath = normalizePath(remotePath);
+    const normalizedBasePath = normalizePath(basePath);
     
     // 检查是否是基础路径本身或其子路径
     return normalizedRemotePath === normalizedBasePath || 
