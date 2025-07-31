@@ -1,7 +1,7 @@
 {
   "id": "cloud-sync",
   "name": "Cloud sync",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "minAppVersion": "0.15.0",
   "description": "将笔记同步到多种云盘服务，提供端到端加密保护。",
   "author": "Bing",
