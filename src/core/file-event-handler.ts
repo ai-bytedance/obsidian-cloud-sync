@@ -124,5 +124,5 @@ export class FileEventHandler {
     if (this.plugin.settings.enableSync) {
       this.plugin.manualSync();
     }
-  }, 5000, true);
-} 
+  }, 5000, false);
+}

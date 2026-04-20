@@ -2,6 +2,7 @@ import { App, Notice, PluginSettingTab, Setting, ButtonComponent } from 'obsidia
 import CloudSyncPlugin from '@main';
 import { PluginSettings, WebDAVSettings, RequestDelayLevel } from '@models/plugin-settings';
 import { WebDAVProvider } from '@providers/webdav/webdav-provider';
+import { GitHubProvider } from '@providers/github/github-provider';
 import { ConnectionStatus } from '@providers/common/storage-provider';
 import { ConflictPolicy, SyncDirection, SyncMode } from '@models/plugin-settings';
 import { ModuleLogger } from '@services/log/log-service';
@@ -35,7 +36,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
   constructor(app: App, plugin: CloudSyncPlugin) {
     super(app, plugin);
     this.plugin = plugin;
-    
+
     // 初始化日志记录器，如果尚未初始化
     if (!logger && plugin.logService) {
       logger = plugin.logService.getModuleLogger('SettingsTab');
@@ -47,24 +48,24 @@ export class CloudSyncSettingTab extends PluginSettingTab {
 
     // 克隆设置对象以便取消时恢复
     this.tempSettings = JSON.parse(JSON.stringify(this.plugin.settings));
-    
+
     // 调试日志：输出初始化的tempSettings值
     logger?.debug('初始化的tempSettings:', {
       syncMode: this.tempSettings.syncMode,
       syncDirection: this.tempSettings.syncDirection
     });
-    
+
     // 确保同步模式和同步方向有有效值
     if (!this.tempSettings.syncMode) {
       logger?.info('同步模式无效，设置为默认值: incremental');
       this.tempSettings.syncMode = 'incremental';
     }
-    
+
     if (!this.tempSettings.syncDirection) {
       logger?.info('同步方向无效，设置为默认值: bidirectional');
       this.tempSettings.syncDirection = 'bidirectional';
     }
-    
+
     // 检查设置的一致性
     this.checkSettingsConsistency();
 
@@ -77,39 +78,39 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     // 创建云盘选择部分 - 调用拆分后的组件
     createCloudProvidersSection(containerEl, this.plugin, this.tempSettings, this.display.bind(this));
 
+    // 创建高级设置部分 - 在云盘详情前展示，避免被长表单挤到视口外
+    createAdvancedSection(containerEl, this.plugin, this.tempSettings, this.display.bind(this));
+
     // 创建WebDAV设置部分 (如果启用) - 调用拆分后的组件
     if (this.tempSettings.enabledProviders.includes('webdav')) {
       createWebDAVSection(
-        containerEl, 
-        this.plugin, 
-        this.tempSettings, 
-        this.testingConnection, 
+        containerEl,
+        this.plugin,
+        this.tempSettings,
+        this.testingConnection,
         (value: boolean) => this.testingConnection = value,
         this.display.bind(this)
       );
     }
-    
+
     // 创建iCloud设置部分 (如果启用)
     if (this.tempSettings.enabledProviders.includes('icloud')) {
       this.createICloudSection(containerEl);
     }
-    
+
     // 创建GitHub设置部分 (如果启用)
     if (this.tempSettings.enabledProviders.includes('github')) {
       this.createGitHubSection(containerEl);
     }
-
-    // 创建高级设置部分 - 调用拆分后的组件
-    createAdvancedSection(containerEl, this.plugin, this.tempSettings, this.display.bind(this));
   }
-  
+
   /**
    * 检查设置的一致性，确保UI状态和内部配置一致
    * @author Bing
    */
   private checkSettingsConsistency(): boolean {
     let needSave = false;
-    
+
     // 检查WebDAV设置的一致性
     if (this.tempSettings.enabledProviders.includes('webdav')) {
       // 如果WebDAV在启用列表中，但WebDAV设置未启用
@@ -126,49 +127,49 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         needSave = true;
       }
     }
-    
+
     // 处理同步间隔与自动同步关联逻辑
     if (this.tempSettings.syncInterval === 0 && this.tempSettings.enableSync) {
       logger?.info('检测到同步间隔为0但同步已启用，同步间隔与状态不一致');
       this.tempSettings.enableSync = false;
       needSave = true;
     }
-    
+
     if (needSave) {
       // 异步保存设置
       this.plugin.saveSettings(this.tempSettings).catch(error => {
         logger?.error('保存修复后的设置失败:', error);
       });
     }
-    
+
     return needSave;
   }
 
   // iCloud设置部分
   createICloudSection(containerEl: HTMLElement): void {
     const icloudSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
-    
+
     // 使用Setting.setHeading()创建标题
     new Setting(icloudSection)
       .setName('iCloud')
       .setHeading();
-    
+
     // 添加开发中提示
-    const developingNotice = icloudSection.createEl('div', { 
-      cls: 'cloud-sync-info-panel cloud-sync-developing-notice' 
+    const developingNotice = icloudSection.createEl('div', {
+      cls: 'cloud-sync-info-panel cloud-sync-developing-notice'
     });
-    
+
     const noticeIcon = developingNotice.createEl('span', {
       cls: 'cloud-sync-tip-icon',
       text: '🚧'
     });
-    
+
     const noticeText = developingNotice.createEl('p', {
       cls: 'cloud-sync-tip-text'
     });
-    
+
     noticeText.setText('iCloud同步功能正在开发中，当前设置仅供参考，尚未实际可用。敬请期待！');
-    
+
     // App ID设置
     new Setting(icloudSection)
       .setName('App ID')
@@ -188,14 +189,14 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           this.tempSettings.providerSettings.icloud.appId = value;
           await this.plugin.saveSettings(this.tempSettings);
         }));
-    
+
     // 密码设置
     new Setting(icloudSection)
       .setName('密码')
       .setDesc('iCloud密码')
       .addText(text => {
         let isPasswordVisible = false;
-        
+
         text.setValue(this.tempSettings.providerSettings.icloud?.password || '')
           .setPlaceholder('请输入iCloud密码')
           .onChange(async (value) => {
@@ -210,43 +211,44 @@ export class CloudSyncSettingTab extends PluginSettingTab {
             this.tempSettings.providerSettings.icloud.password = value;
             await this.plugin.saveSettings(this.tempSettings);
           });
-          
+
         // 添加密码可见性切换功能
         const togglePasswordVisibility = (show: boolean) => {
           isPasswordVisible = show;
           text.inputEl.type = show ? 'text' : 'password';
         };
-        
+
         // 默认为密码模式（隐藏）
         togglePasswordVisibility(false);
-        
+
         // 获取输入框元素
         const inputEl = text.inputEl;
-        
+
         // 添加密码输入框样式类
-        inputEl.addClass('cloud-sync-password-input cs-input-with-icon');
-        
+        inputEl.addClass('cloud-sync-password-input');
+        inputEl.addClass('cs-input-with-icon');
+
         // 创建一个容器来包含输入框和图标
         const containerEl = inputEl.parentElement;
         if (containerEl) {
           // 添加容器样式类
           containerEl.addClass('cloud-sync-input-container');
-          
+
           // 添加显示/隐藏按钮到输入框容器中
           const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
-          
+
           eyeIconContainer.addEventListener('click', () => {
             togglePasswordVisibility(!isPasswordVisible);
             eyeIconContainer.setText(isPasswordVisible ? '👁️' : '👁️‍🗨️');
           });
-          
+
           // 初始设置图标文本
           eyeIconContainer.setText(isPasswordVisible ? '👁️' : '👁️‍🗨️');
         }
-        
+
         return text;
       });
-    
+
     // 同步路径设置
     new Setting(icloudSection)
       .setName('同步路径')
@@ -266,7 +268,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           this.tempSettings.providerSettings.icloud.syncPath = value;
           await this.plugin.saveSettings(this.tempSettings);
         }));
-    
+
     // 授权按钮
     new Setting(icloudSection)
       .setName('授权')
@@ -284,176 +286,145 @@ export class CloudSyncSettingTab extends PluginSettingTab {
   // GitHub设置部分
   createGitHubSection(containerEl: HTMLElement): void {
     const githubSection = containerEl.createEl('div', { cls: 'cloud-sync-settings' });
-    
+    const ensureGitHubSettings = () => {
+      if (!this.tempSettings.providerSettings.github) {
+        this.tempSettings.providerSettings.github = {
+          enabled: true,
+          username: '',
+          token: '',
+          repository: '',
+          branch: 'main',
+          syncPath: ''
+        };
+      }
+
+      return this.tempSettings.providerSettings.github;
+    };
+
     // 使用Setting.setHeading()创建标题
     new Setting(githubSection)
       .setName('GitHub')
       .setHeading();
-    
-    // 添加开发中提示
-    const developingNotice = githubSection.createEl('div', { 
-      cls: 'cloud-sync-info-panel cloud-sync-developing-notice' 
+
+    const infoNotice = githubSection.createEl('div', {
+      cls: 'cloud-sync-info-panel'
     });
-    
-    const noticeIcon = developingNotice.createEl('span', {
+
+    infoNotice.createEl('span', {
       cls: 'cloud-sync-tip-icon',
-      text: '🚧'
+      text: 'Git'
     });
-    
-    const noticeText = developingNotice.createEl('p', {
-      cls: 'cloud-sync-tip-text'
+
+    infoNotice.createEl('p', {
+      cls: 'cloud-sync-tip-text',
+      text: '必填：仓库、Token、分支。仓库建议填写 owner/repo。'
     });
-    
-    noticeText.setText('GitHub同步功能正在开发中，当前设置仅供参考，尚未实际可用。敬请期待！');
-    
-    // 用户名设置
-    new Setting(githubSection)
-      .setName('用户名')
-      .setDesc('GitHub仓库所有者用户名')
+
+    // 仓库设置
+    const repositorySetting = new Setting(githubSection)
+      .setName('仓库')
+      .setDesc('填写 owner/repo，例如 ai-bytedance/obsidian-test')
       .addText(text => text
-        .setValue(this.tempSettings.providerSettings.github?.username || '')
-        .setPlaceholder('请输入GitHub用户名')
+        .setValue(this.tempSettings.providerSettings.github?.repository || '')
+        .setPlaceholder('例如：ai-bytedance/obsidian-test')
         .onChange(async (value) => {
-          if (!this.tempSettings.providerSettings.github) {
-            this.tempSettings.providerSettings.github = {
-              enabled: true,
-              username: '',
-              token: '',
-              repository: '',
-              branch: 'main',
-              syncPath: ''
-            };
-          }
-          this.tempSettings.providerSettings.github.username = value;
+          const githubSettings = ensureGitHubSettings();
+          githubSettings.repository = value;
           await this.plugin.saveSettings(this.tempSettings);
         }));
-    
-    // 访问令牌设置
+    repositorySetting.nameEl.addClass('cloud-sync-required');
+
     new Setting(githubSection)
+      .setName('用户名（兼容，可选）')
+      .setDesc('仅当“仓库”只填写 repo 时，才会使用该用户名作为 owner')
+      .addText(text => text
+        .setValue(this.tempSettings.providerSettings.github?.username || '')
+        .setPlaceholder('可选：请输入GitHub用户名')
+        .onChange(async (value) => {
+          const githubSettings = ensureGitHubSettings();
+          githubSettings.username = value;
+          await this.plugin.saveSettings(this.tempSettings);
+        }));
+
+    // 访问令牌设置
+    const tokenSetting = new Setting(githubSection)
       .setName('个人访问令牌')
       .setDesc('GitHub个人访问令牌（Personal Access Token）')
       .addText(text => {
         let isTokenVisible = false;
-        
+
         text.setValue(this.tempSettings.providerSettings.github?.token || '')
           .setPlaceholder('请输入GitHub个人访问令牌')
           .onChange(async (value) => {
-            if (!this.tempSettings.providerSettings.github) {
-              this.tempSettings.providerSettings.github = {
-                enabled: true,
-                username: '',
-                token: '',
-                repository: '',
-                branch: 'main',
-                syncPath: ''
-              };
-            }
-            this.tempSettings.providerSettings.github.token = value;
+            const githubSettings = ensureGitHubSettings();
+            githubSettings.token = value;
             await this.plugin.saveSettings(this.tempSettings);
           });
-          
+
         // 添加令牌可见性切换功能
         const toggleTokenVisibility = (show: boolean) => {
           isTokenVisible = show;
           text.inputEl.type = show ? 'text' : 'password';
         };
-        
+
         // 默认为密码模式（隐藏）
         toggleTokenVisibility(false);
-        
+
         // 获取输入框元素
         const inputEl = text.inputEl;
-        
+
         // 添加密码输入框样式类
-        inputEl.addClass('cloud-sync-password-input cs-input-with-icon');
-        
+        inputEl.addClass('cloud-sync-password-input');
+        inputEl.addClass('cs-input-with-icon');
+
         // 创建一个容器来包含输入框和图标
         const containerEl = inputEl.parentElement;
         if (containerEl) {
           // 添加容器样式类
           containerEl.addClass('cloud-sync-input-container');
-          
+
           // 添加显示/隐藏按钮到输入框容器中
           const eyeIconContainer = containerEl.createSpan({ cls: 'eye-icon-container cs-eye-icon' });
-          
+
           eyeIconContainer.addEventListener('click', () => {
             toggleTokenVisibility(!isTokenVisible);
             eyeIconContainer.setText(isTokenVisible ? '👁️' : '👁️‍🗨️');
           });
-          
+
           // 初始设置图标文本
           eyeIconContainer.setText(isTokenVisible ? '👁️' : '👁️‍🗨️');
         }
-        
+
         return text;
       });
-    
-    // 仓库名称设置
-    new Setting(githubSection)
-      .setName('仓库名称')
-      .setDesc('GitHub仓库名称')
-      .addText(text => text
-        .setValue(this.tempSettings.providerSettings.github?.repository || '')
-        .setPlaceholder('例如: obsidian-notes')
-        .onChange(async (value) => {
-          if (!this.tempSettings.providerSettings.github) {
-            this.tempSettings.providerSettings.github = {
-              enabled: true,
-              username: '',
-              token: '',
-              repository: '',
-              branch: 'main',
-              syncPath: ''
-            };
-          }
-          this.tempSettings.providerSettings.github.repository = value;
-          await this.plugin.saveSettings(this.tempSettings);
-        }));
-    
+    tokenSetting.nameEl.addClass('cloud-sync-required');
+
     // 分支设置
-    new Setting(githubSection)
+    const branchSetting = new Setting(githubSection)
       .setName('分支')
-      .setDesc('GitHub仓库分支')
+      .setDesc('GitHub 仓库分支')
       .addText(text => text
         .setValue(this.tempSettings.providerSettings.github?.branch || 'main')
-        .setPlaceholder('例如: main')
+        .setPlaceholder('例如：main')
         .onChange(async (value) => {
-          if (!this.tempSettings.providerSettings.github) {
-            this.tempSettings.providerSettings.github = {
-              enabled: true,
-              username: '',
-              token: '',
-              repository: '',
-              branch: 'main',
-              syncPath: ''
-            };
-          }
-          this.tempSettings.providerSettings.github.branch = value || 'main';
+          const githubSettings = ensureGitHubSettings();
+          githubSettings.branch = value || 'main';
           await this.plugin.saveSettings(this.tempSettings);
         }));
-    
-    // 同步路径设置
+    branchSetting.nameEl.addClass('cloud-sync-required');
+
     new Setting(githubSection)
       .setName('同步路径')
       .setDesc('设置GitHub同步数据的存储路径（留空表示同步到根目录）')
       .addText(text => text
         .setValue(this.tempSettings.providerSettings.github?.syncPath || '')
-        .setPlaceholder('例如: notes')
+        .setPlaceholder('例如：notes')
         .onChange(async (value) => {
-          if (!this.tempSettings.providerSettings.github) {
-            this.tempSettings.providerSettings.github = {
-              enabled: true,
-              username: '',
-              token: '',
-              repository: '',
-              branch: 'main',
-              syncPath: ''
-            };
-          }
-          this.tempSettings.providerSettings.github.syncPath = value;
+          const githubSettings = ensureGitHubSettings();
+          githubSettings.syncPath = value;
           await this.plugin.saveSettings(this.tempSettings);
         }));
-    
+
     // 测试连接按钮
     new Setting(githubSection)
       .setName('测试连接')
@@ -462,9 +433,45 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         .setButtonText('测试连接')
         .setCta()
         .onClick(async () => {
-          // 显示未实现提示
-          this.plugin.notificationManager.show('github-test', 'GitHub连接测试功能尚未实现', 4000);
-        }))
-      .setDisabled(true); // 暂时禁用，因为尚未实现
+          const githubSettings = this.tempSettings.providerSettings.github;
+          if (!githubSettings) {
+            this.plugin.notificationManager.show('github-test', 'GitHub设置不存在', 4000);
+            return;
+          }
+
+          if (!githubSettings.repository) {
+            this.plugin.notificationManager.show('github-test', '请先填写 GitHub 仓库', 4000);
+            return;
+          }
+
+          if (!githubSettings.token) {
+            this.plugin.notificationManager.show('github-test', '请先填写 GitHub Token', 4000);
+            return;
+          }
+
+          if (!githubSettings.branch) {
+            this.plugin.notificationManager.show('github-test', '请先填写 GitHub 分支', 4000);
+            return;
+          }
+
+          const originalText = button.buttonEl.textContent || '测试连接';
+          button.setButtonText('测试中...');
+          button.setDisabled(true);
+
+          try {
+            const provider = new GitHubProvider(githubSettings, this.plugin.app);
+            await provider.testConnection();
+            this.plugin.notificationManager.show('github-test-success', 'GitHub 连接成功，仓库与分支均可访问', 4000);
+          } catch (error) {
+            this.plugin.notificationManager.show(
+              'github-test-error',
+              `GitHub 测试失败: ${error.message || error}`,
+              5000
+            );
+          } finally {
+            button.setButtonText(originalText);
+            button.setDisabled(false);
+          }
+        }));
   }
-} 
+}

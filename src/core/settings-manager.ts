@@ -198,6 +198,29 @@ export class SettingsManager {
         }
       }
     }
+
+    // 检查 GitHub 配置
+    if (this.plugin.settings.providerSettings.github) {
+      const githubConfigured =
+        this.plugin.settings.providerSettings.github?.token &&
+        this.plugin.settings.providerSettings.github?.repository &&
+        this.plugin.settings.providerSettings.github?.branch;
+
+      if (githubConfigured) {
+        const isInEnabled = this.plugin.settings.enabledProviders.includes('github');
+        const isEnabled = this.plugin.settings.providerSettings.github?.enabled;
+
+        if (isEnabled && !isInEnabled) {
+          this.logger.info('修复：GitHub已启用但不在enabledProviders列表中');
+          this.plugin.settings.enabledProviders.push('github');
+          needSave = true;
+        } else if (!isEnabled && isInEnabled) {
+          this.logger.info('修复：GitHub在enabledProviders列表中但未启用，从列表中移除');
+          this.plugin.settings.enabledProviders = this.plugin.settings.enabledProviders.filter(p => p !== 'github');
+          needSave = true;
+        }
+      }
+    }
     
     // 处理同步间隔与自动同步关联逻辑
     if (this.plugin.settings.syncInterval === 0 && this.plugin.settings.enableSync) {

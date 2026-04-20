@@ -194,61 +194,7 @@ export class SyncManager {
       const providersInitialized = await this.plugin.ensureProvidersInitialized(true);
       
       if (!providersInitialized) {
-        this.logger.info('存储提供商初始化失败，尝试直接恢复');
-        
-        // 无论如何，确保WebDAV提供商存在（如果配置完整）
-        if (webdavConfigured && webdavSettings) {
-          this.logger.info('检测到WebDAV配置完整，尝试应急创建WebDAV提供商');
-          
-          try {
-            // 直接创建WebDAV提供商实例
-            const WebDAVProvider = this.plugin.getWebDAVProviderClass();
-            if (WebDAVProvider) {
-              const webdavProvider = new WebDAVProvider(webdavSettings, this.plugin.app);
-              
-              // 直接添加到提供商映射
-              if (!this.plugin.storageProviders) {
-                this.plugin.storageProviders = new Map();
-              }
-              
-              this.plugin.storageProviders.set('webdav', webdavProvider);
-              this.logger.info('应急创建WebDAV提供商成功，被添加到映射');
-              
-              // 验证是否真的添加成功
-              if (!this.plugin.storageProviders.has('webdav')) {
-                this.logger.error('WebDAV提供商添加到映射失败，可能是映射对象问题');
-                
-                // 重新创建映射并再次尝试
-                this.plugin.storageProviders = new Map();
-                this.plugin.storageProviders.set('webdav', webdavProvider);
-                
-                if (this.plugin.storageProviders.has('webdav')) {
-                  this.logger.info('第二次尝试添加WebDAV提供商成功');
-                } else {
-                  throw new Error('即使重建映射，仍无法添加WebDAV提供商');
-                }
-              }
-            } else {
-              this.logger.error('无法获取WebDAV提供商类');
-              if (showNotice) {
-                this.notificationManager.show('sync-error', '无法创建WebDAV提供商，请重启应用', 5000);
-              }
-              return false;
-            }
-          } catch (error) {
-            this.logger.error('创建WebDAV提供商实例失败:', error);
-            if (showNotice) {
-              this.notificationManager.show('sync-error', `无法创建WebDAV提供商：${error.message || error}`, 5000);
-            }
-            return false;
-          }
-        } else {
-          this.logger.info('WebDAV配置不完整，无法创建提供商');
-          if (showNotice) {
-            this.notificationManager.show('sync-error', '云存储配置不完整，请检查WebDAV设置', 5000);
-          }
-          return false;
-        }
+        this.logger.info('存储提供商初始化未完全成功，继续检查是否存在可用提供商实例');
       }
       
       // 检查提供商映射是否为空
@@ -280,74 +226,19 @@ export class SyncManager {
         }
       }
 
-      // 特别检查WebDAV提供商，确保它存在于映射中
-      if (webdavConfigured && 
-          (!this.plugin.storageProviders.has('webdav'))) {
-        this.logger.info('WebDAV配置完整但未在提供商映射中找到，尝试紧急添加');
-        
-        try {
-          // 直接创建WebDAV提供商实例
-          const WebDAVProvider = this.plugin.getWebDAVProviderClass();
-          if (WebDAVProvider && webdavSettings) {
-            const webdavProvider = new WebDAVProvider(webdavSettings, this.plugin.app);
-            this.plugin.storageProviders.set('webdav', webdavProvider);
-            this.logger.info('紧急添加WebDAV提供商成功');
-          } else {
-            this.logger.error('无法获取WebDAV提供商类或设置');
-            if (showNotice) {
-              this.notificationManager.show('sync-error', '无法创建WebDAV提供商，请重启应用', 5000);
-            }
-            return false;
-          }
-        } catch (error) {
-          this.logger.error('紧急添加WebDAV提供商失败:', error);
-        }
-      }
-      
       // 最终检查是否有可用的提供商
       if (this.plugin.storageProviders.size === 0) {
         this.logger.error('无可用的存储提供商，无法同步');
         if (showNotice) {
-          this.notificationManager.show('sync-error', '没有可用的存储提供商，无法同步', 5000);
+          this.notificationManager.show('sync-error', '没有可用的存储提供商，无法同步，请检查已启用云盘的配置', 5000);
         }
         return false;
       }
 
       this.logger.info(`准备开始同步，检测到 ${this.plugin.storageProviders.size} 个提供商`);
 
-      // 由双向同步类执行同步逻辑
       try {
-        // 获取本地文件和文件夹列表
-        const [localFiles, localFolders] = await Promise.all([
-          this.getLocalFiles(),
-          this.getLocalFolders()
-        ]);
-        
-        // 对于所有启用的提供商，执行同步
-        for (const providerType of this.plugin.settings.enabledProviders) {
-          // 获取提供商实例
-          const provider = this.plugin.storageProviders.get(providerType);
-          if (!provider) {
-            this.logger.error(`无法获取提供商实例: ${providerType}`);
-            continue;
-          }
-          
-          // 获取远程文件列表
-          const remotePath = '';  // 使用根路径
-          this.logger.info(`获取远程文件列表，路径: ${remotePath || '根目录'}...`);
-          
-          // 获取远程文件
-          const remoteFiles = await provider.listFiles(remotePath);
-          this.logger.info(`获取到 ${remoteFiles.length} 个远程文件/文件夹`);
-
-          // 检查当前设置的同步方向
-          const syncDirection = this.plugin.settings.syncDirection;
-          this.logger.info(`当前SyncManager中配置的同步方向: ${syncDirection}`);
-          
-          // 创建SyncEngine实例来处理同步，确保按配置的方向执行
-          const syncEngine = new SyncEngine(this.plugin, this.notificationManager);
-          await syncEngine.performSync(false); // false表示这是手动同步，非自动同步
-        }
+        await this.plugin.syncEngine.performSync(false);
       } catch (error) {
         this.logger.error('同步执行中出错:', error);
         throw error;
@@ -715,12 +606,46 @@ export class SyncManager {
       }
     }
 
+    if (this.plugin.settings.providerSettings.github) {
+      const githubConfigured =
+        this.plugin.settings.providerSettings.github?.token &&
+        this.plugin.settings.providerSettings.github?.repository &&
+        this.plugin.settings.providerSettings.github?.branch;
+
+      if (githubConfigured) {
+        const isInEnabled = this.plugin.settings.enabledProviders.includes('github');
+        const isEnabled = this.plugin.settings.providerSettings.github?.enabled;
+
+        if (isEnabled && !isInEnabled) {
+          this.logger.info('修复：GitHub已启用但不在enabledProviders列表中');
+          this.plugin.settings.enabledProviders.push('github');
+          needSave = true;
+        } else if (!isEnabled && isInEnabled) {
+          this.logger.info('修复：GitHub在enabledProviders列表中但未启用');
+          if (this.plugin.settings.providerSettings.github) {
+            this.plugin.settings.providerSettings.github.enabled = true;
+            needSave = true;
+          }
+        }
+
+        if (isEnabled || isInEnabled || this.plugin.settings.enabledProviders.includes('github')) {
+          if (!this.plugin.settings.enableSync) {
+            this.logger.info('修复：GitHub已启用，但全局同步功能未开启，现自动启用全局同步');
+            this.plugin.settings.enableSync = true;
+            needSave = true;
+          }
+        }
+      }
+    }
+
     // 记录当前状态
     if (needSave) {
       this.logger.info('修复后设置状态 - 同步启用:', this.plugin.settings.enableSync);
       this.logger.info('修复后设置状态 - 启用的提供商:', this.plugin.settings.enabledProviders);
       this.logger.info('修复后设置状态 - WebDAV启用:', 
         this.plugin.settings.providerSettings.webdav?.enabled || false);
+      this.logger.info('修复后设置状态 - GitHub启用:',
+        this.plugin.settings.providerSettings.github?.enabled || false);
     }
 
     return needSave;

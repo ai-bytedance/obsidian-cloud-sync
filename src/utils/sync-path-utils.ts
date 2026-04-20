@@ -40,6 +40,18 @@ export class SyncPathUtils {
         }
       }
     }
+
+    if (providerType === 'github' && settings.providerSettings.github) {
+      const syncPath = settings.providerSettings.github.syncPath;
+      if (syncPath && syncPath.trim()) {
+        let path = syncPath.trim();
+        path = path.replace(/^\/+/, '').replace(/\/+$/, '');
+        if (path) {
+          this.logger?.info(`使用GitHub同步路径: ${path}`);
+          return path;
+        }
+      }
+    }
     
     // 如果没有设置同步路径或者是其他提供商，使用空路径
     return '';

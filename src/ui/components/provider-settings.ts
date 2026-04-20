@@ -144,18 +144,37 @@ export function createCloudProvidersSection(
   iCloudSetting.settingEl.addClass('cloud-sync-developing');
 
   // GitHub选项
-  const gitHubSetting = new Setting(providersSection)
+  new Setting(providersSection)
     .setName('GitHub')
-    .setDesc('【开发中】使用GitHub同步数据')
+    .setDesc('使用 GitHub 仓库同步数据')
     .addToggle(toggle => toggle
-      .setValue(false)
-      .setDisabled(true));
-  
-  // 添加点击事件处理，显示友好提示
-  gitHubSetting.settingEl.addEventListener('click', () => {
-    plugin.notificationManager.show('github-dev', 'GitHub同步功能正在开发中，敬请期待！', 3000);
-  });
-  
-  // 添加开发中的视觉提示
-  gitHubSetting.settingEl.addClass('cloud-sync-developing');
+      .setValue(tempSettings.enabledProviders.includes('github'))
+      .onChange(async (value) => {
+        if (value) {
+          if (!tempSettings.enabledProviders.includes('github')) {
+            tempSettings.enabledProviders.push('github');
+          }
+
+          if (!tempSettings.providerSettings.github) {
+            tempSettings.providerSettings.github = {
+              enabled: true,
+              username: '',
+              token: '',
+              repository: '',
+              branch: 'main',
+              syncPath: ''
+            };
+          } else {
+            tempSettings.providerSettings.github.enabled = true;
+          }
+        } else {
+          tempSettings.enabledProviders = tempSettings.enabledProviders.filter(p => p !== 'github');
+          if (tempSettings.providerSettings.github) {
+            tempSettings.providerSettings.github.enabled = false;
+          }
+        }
+
+        await plugin.saveSettings(tempSettings);
+        await displayFunc();
+      }));
 } 

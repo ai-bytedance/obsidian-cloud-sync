@@ -122,22 +122,15 @@ export abstract class SyncStrategyBase implements SyncStrategy {
           plugin.settings.encryption.key
         );
         
-        // 上传加密的二进制内容
-        // 注意：此处调用的API定义和实现不一致
-        // StorageProvider接口定义: uploadFile(localPath, remotePath)
-        // 但WebDAV实现实际上是: uploadFile(remotePath, content)
-        // @ts-ignore 忽略类型检查，因为我们知道实际实现
         await provider.uploadFile(remotePath, encryptedBuffer);
         this.logger.info(`加密上传二进制文件成功: ${sourceFilePath}`);
       } catch (encryptError) {
         this.logger.error(`加密二进制文件失败: ${sourceFilePath}`, encryptError);
         // 如果加密失败，使用原始内容上传
-        // @ts-ignore 忽略类型检查
         await provider.uploadFile(remotePath, content);
       }
     } else {
       // 未启用加密，直接上传二进制内容
-      // @ts-ignore 忽略类型检查
       await provider.uploadFile(remotePath, content);
     }
   }
@@ -174,7 +167,6 @@ export abstract class SyncStrategyBase implements SyncStrategy {
             await plugin.cryptoService.decrypt(buffer, plugin.settings.encryption.key);
             this.logger.info(`内容已加密，直接上传: ${sourceFilePath}`);
             // 内容已加密，直接上传
-            // @ts-ignore 忽略类型检查，接口与实现不一致
             await provider.uploadFile(remotePath, content);
             return;
           } catch (decryptError) {
@@ -199,20 +191,15 @@ export abstract class SyncStrategyBase implements SyncStrategy {
         const encryptedBase64 = await this.arrayBufferToBase64(encryptedBuffer);
         
         // 上传加密的内容
-        // 注意：虽然StorageProvider接口定义的参数是(localPath, remotePath)，
-        // 但实际实现中WebDAV接口的参数是(remotePath, content)
-        // @ts-ignore 忽略类型检查，接口与实现不一致
         await provider.uploadFile(remotePath, encryptedBase64);
         this.logger.info(`加密上传成功: ${sourceFilePath}`);
       } catch (encryptError) {
         this.logger.error(`加密失败: ${sourceFilePath}`, encryptError);
         // 如果加密失败，使用原始内容上传
-        // @ts-ignore 忽略类型检查，接口与实现不一致
         await provider.uploadFile(remotePath, content);
       }
     } else {
       // 未启用加密，直接上传
-      // @ts-ignore 忽略类型检查，接口与实现不一致
       await provider.uploadFile(remotePath, content);
     }
   }

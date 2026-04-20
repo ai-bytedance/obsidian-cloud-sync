@@ -186,11 +186,11 @@ export interface StorageProvider {
 
   /**
    * 上传文件
-   * @param localPath 本地路径
    * @param remotePath 远程路径
+   * @param content 文件内容
    * @author Bing
    */
-  uploadFile(localPath: string, remotePath: string): Promise<void>;
+  uploadFile(remotePath: string, content: string | ArrayBuffer): Promise<void>;
 
   /**
    * 删除文件

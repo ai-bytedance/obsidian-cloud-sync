@@ -160,7 +160,7 @@ export class SyncEngine {
             }
           } else if (error.code === 'AUTH_FAILED' || error.status === 401 || error.status === 403) {
             // 认证错误，提供更具体的错误信息
-            throw new Error(`获取远程文件列表失败: 认证错误，请检查账号和密码 (${error.message || error})`);
+            throw new Error(`获取远程文件列表失败: 认证错误，请检查凭据或访问权限 (${error.message || error})`);
           } else {
             // 其他类型的错误，直接抛出
             throw error;
@@ -217,7 +217,7 @@ export class SyncEngine {
           
           // 对于认证错误提供更具体的错误信息
           if (syncError.code === 'AUTH_FAILED' || syncError.status === 401 || syncError.status === 403) {
-            throw new Error(`同步操作失败: 认证错误，请检查账号和密码 (${syncError.message || syncError})`);
+            throw new Error(`同步操作失败: 认证错误，请检查凭据或访问权限 (${syncError.message || syncError})`);
           } else {
             throw new Error(`同步操作失败: ${syncError.message || syncError}`);
           }

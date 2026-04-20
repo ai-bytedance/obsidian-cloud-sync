@@ -125,11 +125,12 @@ export abstract class WebDAVBase implements StorageProvider {
   
   /**
    * 上传文件
-   * @param source 本地文件路径或文件内容
+   * @param remotePath 远程路径
+   * @param content 文件内容
    * @param remotePath 远程路径
    * @author Bing
    */
-  abstract uploadFile(source: string | ArrayBuffer, remotePath: string): Promise<void>;
+  abstract uploadFile(remotePath: string, content: string | ArrayBuffer): Promise<void>;
   
   /**
    * 删除文件

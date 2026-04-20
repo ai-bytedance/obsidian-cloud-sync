@@ -1,6 +1,7 @@
 import { StorageProvider, ConnectionStatus } from '@providers/common/storage-provider';
 import { StorageProviderType, PluginSettings } from '@models/plugin-settings';
 import { WebDAVProvider } from '@providers/webdav/webdav-provider';
+import { GitHubProvider } from '@providers/github/github-provider';
 import { NotificationManager } from '@services/notification/notification-manager';
 import { App } from 'obsidian';
 import { LogService, ModuleLogger } from '@services/log/log-service';
@@ -55,19 +56,18 @@ export class ProviderManager {
     this.logger.info('初始化存储提供商...');
     this.logger.info(`当前环境: forceInitialize=${forceInitialize}, enableSync=${this.settings.enableSync}`);
     this.logger.info(`当前enabledProviders=${JSON.stringify(this.settings.enabledProviders || [])}`);
-    this.logger.info(`当前WebDAV配置: ${this.isWebDAVConfigComplete(this.settings.providerSettings?.webdav) ? '完整' : '不完整'}, enabled=${this.settings.providerSettings?.webdav?.enabled}`);
+    const webdavComplete = this.isWebDAVConfigComplete(this.settings.providerSettings?.webdav);
+    const githubComplete = this.isGitHubConfigComplete(this.settings.providerSettings?.github);
+    this.logger.info(`当前WebDAV配置: ${webdavComplete ? '完整' : '不完整'}, enabled=${this.settings.providerSettings?.webdav?.enabled}`);
+    this.logger.info(`当前GitHub配置: ${githubComplete ? '完整' : '不完整'}, enabled=${this.settings.providerSettings?.github?.enabled}`);
     
     // 改进：临时变量保存是否跳过enableSync检查
     let skipEnableSyncCheck = forceInitialize;
     
     // 改进：在强制初始化模式下，如果WebDAV配置完整，总是允许初始化
-    if (forceInitialize) {
-      const webdavConfigured = this.isWebDAVConfigComplete(this.settings.providerSettings.webdav);
-        
-      if (webdavConfigured) {
-        this.logger.info('强制初始化模式：检测到WebDAV配置完整，允许初始化');
-        skipEnableSyncCheck = true;
-      }
+    if (forceInitialize && (webdavComplete || githubComplete)) {
+      this.logger.info('强制初始化模式：检测到至少一个已配置提供商，允许初始化');
+      skipEnableSyncCheck = true;
     }
     
     // 如果同步功能未启用且不允许跳过检查，则不初始化提供商
@@ -85,21 +85,26 @@ export class ProviderManager {
         this.isWebDAVConfigComplete(this.settings.providerSettings?.webdav) ? '已配置' : '未配置');
       
       // 强制初始化时，如果WebDAV配置完整但未在列表中，临时添加它
-      if (forceInitialize && this.isWebDAVConfigComplete(this.settings.providerSettings?.webdav)) {
-        this.logger.info('强制初始化模式：WebDAV配置完整但不在启用列表中，临时添加');
+      if (forceInitialize && (webdavComplete || githubComplete)) {
+        this.logger.info('强制初始化模式：存在完整配置的提供商但不在启用列表中，临时添加');
         if (!this.settings.enabledProviders) {
           this.settings.enabledProviders = [];
         }
-        if (!this.settings.enabledProviders.includes('webdav')) {
+
+        if (webdavComplete && !this.settings.enabledProviders.includes('webdav')) {
           this.settings.enabledProviders.push('webdav');
-          
-          // 确保WebDAV标记为启用
           if (this.settings.providerSettings?.webdav) {
             this.settings.providerSettings.webdav.enabled = true;
           }
         }
-        
-        // 记录更新后的状态
+
+        if (githubComplete && !this.settings.enabledProviders.includes('github')) {
+          this.settings.enabledProviders.push('github');
+          if (this.settings.providerSettings?.github) {
+            this.settings.providerSettings.github.enabled = true;
+          }
+        }
+
         this.logger.info(`临时添加后enabledProviders=${JSON.stringify(this.settings.enabledProviders)}`);
       } else {
         return;
@@ -293,6 +298,8 @@ export class ProviderManager {
     // 检查WebDAV配置状态
     const webdavSettings = this.settings.providerSettings.webdav;
     const webdavConfigured = this.isWebDAVConfigComplete(webdavSettings);
+    const githubSettings = this.settings.providerSettings.github;
+    const githubConfigured = this.isGitHubConfigComplete(githubSettings);
     
     if (webdavConfigured) {
       this.logger.info('检测到WebDAV已配置完整');
@@ -355,6 +362,52 @@ export class ProviderManager {
         needSave = true;
       }
     }
+
+    if (githubConfigured) {
+      this.logger.info('检测到GitHub已配置完整');
+
+      const isInEnabled = this.settings.enabledProviders.includes('github');
+      const isGitHubEnabled = githubSettings?.enabled === true;
+
+      this.logger.info(`当前GitHub启用状态: ${isGitHubEnabled ? '已启用' : '未启用'}`);
+      this.logger.info(`当前GitHub在提供商列表中: ${isInEnabled ? '是' : '否'}`);
+
+      if (!isGitHubEnabled || !isInEnabled) {
+        if (!isGitHubEnabled && githubSettings) {
+          this.logger.info('修复: 将GitHub标记为已启用');
+          githubSettings.enabled = true;
+          needSave = true;
+        }
+
+        if (!isInEnabled) {
+          this.logger.info('修复: 将GitHub添加到启用列表');
+          this.settings.enabledProviders.push('github');
+          needSave = true;
+        }
+      }
+
+      if (isGitHubEnabled || (githubSettings && githubSettings.enabled)) {
+        if (!this.settings.enableSync) {
+          this.logger.info('修复：GitHub已启用，但全局同步功能未开启，现自动启用全局同步');
+          this.settings.enableSync = true;
+          needSave = true;
+        }
+
+        if (this.settings.syncInterval === 0) {
+          this.logger.info('修复：GitHub已启用，但同步间隔为0，设置为默认值5');
+          this.settings.syncInterval = 5;
+          needSave = true;
+        }
+      }
+    } else {
+      this.logger.info('GitHub配置不完整');
+
+      if (this.settings.enabledProviders.includes('github')) {
+        this.logger.info('修复: GitHub配置不完整但在启用列表中，移除之');
+        this.settings.enabledProviders = this.settings.enabledProviders.filter(p => p !== 'github');
+        needSave = true;
+      }
+    }
     
     // 再次确认所有enabledProviders中的提供商都有正确的enabled标志
     if (this.settings.enabledProviders && this.settings.enabledProviders.length > 0) {
@@ -366,7 +419,13 @@ export class ProviderManager {
             needSave = true;
           }
         }
-        // 为其他提供商类型添加类似的检查...
+        if (providerType === 'github' && this.settings.providerSettings?.github) {
+          if (this.settings.providerSettings.github.enabled !== true) {
+            this.logger.info('修复: GitHub在启用列表中但未标记为启用，设置其为启用');
+            this.settings.providerSettings.github.enabled = true;
+            needSave = true;
+          }
+        }
       }
     }
     
@@ -378,6 +437,10 @@ export class ProviderManager {
         this.settings.providerSettings && 
         this.settings.providerSettings.webdav ? 
         this.settings.providerSettings.webdav.enabled : false);
+      this.logger.info('修复后设置状态 - GitHub启用:',
+        this.settings.providerSettings &&
+        this.settings.providerSettings.github ?
+        this.settings.providerSettings.github.enabled : false);
     } else {
       this.logger.info('设置一致性验证完成，无需修复');
     }
@@ -459,6 +522,15 @@ export class ProviderManager {
           this.logger.info(`WebDAV配置不完整，无法初始化`);
           return false;
         }
+      } else if (providerName === 'github') {
+        const githubSettings = this.settings.providerSettings?.github;
+        const isComplete = this.isGitHubConfigComplete(githubSettings);
+        this.logger.info(`尝试初始化GitHub - 配置完整: ${isComplete}`);
+
+        if (!isComplete) {
+          this.logger.info('GitHub配置不完整，无法初始化');
+          return false;
+        }
       }
 
       // 根据提供商类型创建实例
@@ -468,6 +540,11 @@ export class ProviderManager {
         const webdavSettings = this.settings.providerSettings?.webdav;
         if (webdavSettings) {
           storageProvider = new WebDAVProvider(webdavSettings, this.app);
+        }
+      } else if (providerName === 'github') {
+        const githubSettings = this.settings.providerSettings?.github;
+        if (githubSettings) {
+          storageProvider = new GitHubProvider(githubSettings, this.app);
         }
       } else {
         this.logger.warning(`不支持的提供商类型: ${providerName}`);
@@ -628,4 +705,16 @@ export class ProviderManager {
       return -1;
     }
   }
-} 
+
+  private isGitHubConfigComplete(settings: PluginSettings['providerSettings']['github']): boolean {
+    if (!settings) {
+      return false;
+    }
+
+    const hasToken = typeof settings.token === 'string' && settings.token.trim() !== '';
+    const hasRepository = typeof settings.repository === 'string' && settings.repository.trim() !== '';
+    const hasBranch = typeof settings.branch === 'string' && settings.branch.trim() !== '';
+
+    return hasToken && hasRepository && hasBranch;
+  }
+}

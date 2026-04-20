@@ -205,14 +205,14 @@ export class WebDAVProvider implements StorageProvider {
   
   /**
    * 上传文件
-   * @param localPath 本地路径
    * @param remotePath 远程路径
+   * @param content 文件内容
    * @author Bing
    */
-  async uploadFile(localPath: string, remotePath: string): Promise<void> {
-    this.logger?.info(`上传文件: ${localPath} -> ${remotePath}`);
+  async uploadFile(remotePath: string, content: string | ArrayBuffer): Promise<void> {
+    this.logger?.info(`上传文件: ${remotePath}`);
     try {
-      await this.provider.uploadFile(localPath, remotePath);
+      await this.provider.uploadFile(remotePath, content);
       this.logger?.info(`文件上传成功: ${remotePath}`);
     } catch (error) {
       this.logger?.error(`上传文件失败: ${remotePath}`, error);

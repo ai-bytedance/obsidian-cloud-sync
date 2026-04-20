@@ -354,18 +354,18 @@ export class JianguoyunWebDAVVendor extends GenericWebDAVVendor {
   
   /**
    * 上传文件到坚果云
-   * @param localPath 本地路径
    * @param remotePath 远程路径
+   * @param content 文件内容
    */
-  async uploadFile(localPath: string, remotePath: string): Promise<void> {
+  async uploadFile(remotePath: string, content: string | ArrayBuffer): Promise<void> {
     // 添加请求延迟
     await this.addRequestDelay();
     
-    this.logger?.info(`上传文件到坚果云: ${localPath} -> ${remotePath}`);
+    this.logger?.info(`上传文件到坚果云: ${remotePath}`);
     
     try {
       // 调用父类方法上传
-      await super.uploadFile(localPath, remotePath);
+      await super.uploadFile(remotePath, content);
     } catch (error) {
       this.logger?.error(`上传文件到坚果云失败: ${remotePath}`, error);
       throw this.handleError(error);

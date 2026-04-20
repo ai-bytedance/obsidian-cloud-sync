@@ -259,6 +259,24 @@ export function createGeneralSection(
               plugin.notificationManager.show('sync-warning', '警告：使用非加密连接可能导致数据泄露风险', 7000);
             }
           }
+
+          if (plugin.settings.enabledProviders.includes('github')) {
+            const githubSettings = plugin.settings.providerSettings.github;
+            if (!githubSettings || !githubSettings.token) {
+              plugin.notificationManager.show('sync-prereq', '请先完成 GitHub 配置，Token 不能为空', 4000);
+              return;
+            }
+
+            if (!githubSettings.repository) {
+              plugin.notificationManager.show('sync-prereq', '请先完成 GitHub 配置，仓库不能为空', 4000);
+              return;
+            }
+
+            if (!githubSettings.branch) {
+              plugin.notificationManager.show('sync-prereq', '请先完成 GitHub 配置，分支不能为空', 4000);
+              return;
+            }
+          }
           
           // 所有检查通过，开始同步
           const syncButton = button.buttonEl;
@@ -290,16 +308,23 @@ export function createGeneralSection(
                   (syncError.message && (syncError.message.includes('认证错误') || 
                                         syncError.message.includes('认证失败') || 
                                         syncError.message.includes('身份验证')))) {
-                errorMessage = '同步失败: 认证错误，请检查账号和密码';
-                
-                // 如果是坚果云，添加特殊提示
-                if (plugin.settings.providerSettings.webdav?.serverUrl?.includes('jianguoyun.com')) {
-                  errorMessage += '\n坚果云用户请确认账号密码正确，且未开启二步验证';
+                if (plugin.settings.enabledProviders.includes('github')) {
+                  errorMessage = '同步失败: GitHub 认证错误，请检查 Token、仓库权限和分支';
+                } else {
+                  errorMessage = '同步失败: 认证错误，请检查账号和密码';
+                  
+                  if (plugin.settings.providerSettings.webdav?.serverUrl?.includes('jianguoyun.com')) {
+                    errorMessage += '\n坚果云用户请确认账号密码正确，且未开启二步验证';
+                  }
                 }
               } else if (syncError.code === 'NOT_FOUND' || 
                         (syncError.message && (syncError.message.includes('404') || 
                                               syncError.message.includes('不存在')))) {
-                errorMessage = '同步失败: 远程目录不存在，请检查同步路径设置或创建指定的目录';
+                if (plugin.settings.enabledProviders.includes('github')) {
+                  errorMessage = '同步失败: GitHub 资源不存在，请检查仓库、分支或同步路径设置';
+                } else {
+                  errorMessage = '同步失败: 远程目录不存在，请检查同步路径设置或创建指定的目录';
+                }
               } else if (syncError.code === 'FORBIDDEN' || 
                         (syncError.message && (syncError.message.includes('403') || 
                                               syncError.message.includes('权限')))) {
